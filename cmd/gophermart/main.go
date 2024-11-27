@@ -34,7 +34,7 @@ func main() {
 		Addr:         cfg.Address,
 		ReadTimeout:  1 * time.Second,
 		WriteTimeout: 1 * time.Second,
-		//Handler:      cRouter.GetRouter(),
+		// Handler:      cRouter.GetRouter(),
 	}
 
 	go func() {
