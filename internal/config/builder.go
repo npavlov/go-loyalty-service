@@ -2,22 +2,19 @@ package config
 
 import (
 	"flag"
-	"time"
+	"strings"
 
 	"github.com/caarlos0/env/v6"
 	"github.com/rs/zerolog"
 )
 
 type Config struct {
-	Address          string `env:"ADDRESS"        envDefault:"localhost:8080"`
-	StoreInterval    int64  `env:"STORE_INTERVAL" envDefault:"300"`
-	StoreIntervalDur time.Duration
-	File             string `env:"FILE_STORAGE_PATH"     envDefault:"temp.txt"`
-	Database         string `env:"DATABASE_DSN"          envDefault:""`
-	RestoreStorage   bool   `env:"RESTORE"               envDefault:"true"`
-	HealthCheck      int64  `env:"HEALTH_CHECK_INTERVAL" envDefault:"5"`
-	Key              string `env:"KEY"                   envDefault:""`
-	HealthCheckDur   time.Duration
+	Address        string `env:"RUN_ADDRESS"        envDefault:"localhost:8081"`
+	AccrualAddress string `env:"ACCRUAL_SYSTEM_ADDRESS" envDefault:"localhost:8080"`
+	Database       string `env:"DATABASE_URI"          envDefault:""`
+	JwtSecret      string `env:"JWT_SECRET"          envDefault:""`
+	Redis          string `env:"REDIS"          envDefault:"localhost:6379"`
+	Kafka          string `env:"KAFKA"          envDefault:"localhost:9092"`
 }
 
 // Builder defines the builder for the Config struct.
@@ -30,15 +27,12 @@ type Builder struct {
 func NewConfigBuilder(log *zerolog.Logger) *Builder {
 	return &Builder{
 		cfg: &Config{
-			Address:          "",
-			StoreInterval:    0,
-			File:             "",
-			RestoreStorage:   false,
-			StoreIntervalDur: 0,
-			Database:         "",
-			HealthCheck:      0,
-			HealthCheckDur:   0,
-			Key:              "",
+			Address:        "",
+			AccrualAddress: "",
+			Database:       "",
+			JwtSecret:      "",
+			Redis:          "",
+			Kafka:          "",
 		},
 		logger: log,
 	}
@@ -56,11 +50,11 @@ func (b *Builder) FromEnv() *Builder {
 // FromFlags parses command line flags into the ConfigBuilder.
 func (b *Builder) FromFlags() *Builder {
 	flag.StringVar(&b.cfg.Address, "a", b.cfg.Address, "address and port to run server")
-	flag.BoolVar(&b.cfg.RestoreStorage, "r", b.cfg.RestoreStorage, "restore previous session")
-	flag.StringVar(&b.cfg.File, "f", b.cfg.File, "file where to store mem storage")
+	flag.StringVar(&b.cfg.AccrualAddress, "r", b.cfg.AccrualAddress, "accrual system address and port")
 	flag.StringVar(&b.cfg.Database, "d", b.cfg.Database, "database DSN")
-	flag.Int64Var(&b.cfg.StoreInterval, "i", b.cfg.StoreInterval, "time flushing mem storage to file (in seconds)")
-	flag.StringVar(&b.cfg.Key, "k", b.cfg.Key, "key to sign request")
+	flag.StringVar(&b.cfg.JwtSecret, "jwt", b.cfg.JwtSecret, "JWT Secret")
+	flag.StringVar(&b.cfg.Redis, "redis", b.cfg.Redis, "Redis connection string")
+	flag.StringVar(&b.cfg.Kafka, "kafka", b.cfg.Kafka, "Kafka connection string")
 	flag.Parse()
 
 	return b
@@ -68,8 +62,9 @@ func (b *Builder) FromFlags() *Builder {
 
 // Build returns the final configuration.
 func (b *Builder) Build() *Config {
-	b.cfg.StoreIntervalDur = time.Duration(b.cfg.StoreInterval) * time.Second
-	b.cfg.HealthCheckDur = time.Duration(b.cfg.HealthCheck) * time.Second
+	if !strings.HasPrefix(b.cfg.AccrualAddress, "http://") && !strings.HasPrefix(b.cfg.AccrualAddress, "https://") {
+		b.cfg.AccrualAddress = "http://" + b.cfg.AccrualAddress
+	}
 
 	return b.cfg
 }
