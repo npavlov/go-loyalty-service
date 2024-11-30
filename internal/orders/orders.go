@@ -100,6 +100,10 @@ func (or *Orders) ProcessOrders(ctx context.Context) {
 			err = utils.RetryOperation(ctx, operation)
 			if err != nil {
 				or.log.Error().Err(err).Str("orderId", data.OrderNum).Msg("error processing order")
+
+				or.log.Info().Interface("order", data).Msg("Order can't be processed in Kafka, skipping")
+				_ = or.reader.CommitMessages(ctx, msg)
+				continue
 				//Should we add order again?
 				//_ = or.AddOrder(ctx, data.OrderNum, data.UserId)
 			}

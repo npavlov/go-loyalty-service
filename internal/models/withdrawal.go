@@ -6,7 +6,7 @@ import (
 )
 
 type Withdrawal struct {
-	OrderId   string    `json:"number" db:"order_num"`
+	OrderId   string    `json:"order" db:"order_num"`
 	Sum       *float64  `json:"sum" db:"amount"`
 	CreatedAt time.Time `json:"processed_at" db:"updated_at"`
 }

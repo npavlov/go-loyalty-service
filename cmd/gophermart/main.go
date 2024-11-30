@@ -13,7 +13,6 @@ import (
 	"github.com/npavlov/go-loyalty-service/internal/orders"
 	"github.com/npavlov/go-loyalty-service/internal/queue"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
-	"github.com/npavlov/go-loyalty-service/internal/withdrawal"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/joho/godotenv"
@@ -77,15 +76,10 @@ func main() {
 		WithSender(cfg).WithStorage(st)
 	go ordersProcessor.ProcessOrders(ctx)
 
-	withdrawalWriter, withdrawalReader, closeWithdrawal := kafkaQueue.CreateGroup(withdrawalTopic)
-	defer closeWithdrawal()
-	withdrawalProcessor := withdrawal.NewWithdrawal(withdrawalWriter, withdrawalReader, st, log)
-	go withdrawalProcessor.ProcessWithdrawal(ctx)
-
 	hHandlers := healthHandler.NewHealthHandler(dbManager, log)
 	aHandlers := authHandler.NewAuthHandler(st, cfg, redisClient, log)
 	oHandlers := ordersHandler.NewOrdersHandler(st, ordersProcessor, log)
-	bHandlers := balanceHandler.NewBalanceHandler(st, withdrawalProcessor, log)
+	bHandlers := balanceHandler.NewBalanceHandler(st, log)
 
 	var cRouter router.Router = router.NewCustomRouter(cfg, redisClient, log)
 	cRouter.SetMiddlewares()

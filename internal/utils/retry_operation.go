@@ -8,14 +8,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-const maxRetries = 5
+const maxRetries = 3
 
 type OperationFunc func() error
 
 // RetryOperation executes a database operation with retry logic.
 func RetryOperation(ctx context.Context, operation OperationFunc) error {
 	backoffConfig := backoff.NewExponentialBackOff()
-	backoffConfig.InitialInterval = 1 * time.Second
+	backoffConfig.InitialInterval = 500 * time.Millisecond
 	backoffConfig.Multiplier = 3
 	retryWithLimit := backoff.WithMaxRetries(backoffConfig, maxRetries)
 

@@ -7,22 +7,19 @@ import (
 	"github.com/npavlov/go-loyalty-service/internal/models"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
-	"github.com/npavlov/go-loyalty-service/internal/withdrawal"
 	"github.com/rs/zerolog"
 )
 
 type HandlerBalance struct {
-	logger              *zerolog.Logger
-	storage             *storage.DBStorage
-	withdrawalProcessor *withdrawal.Withdrawal
+	logger  *zerolog.Logger
+	storage *storage.DBStorage
 }
 
 // NewBalanceHandler - constructor for HealthHandler.
-func NewBalanceHandler(storage *storage.DBStorage, withdrawalProcessor *withdrawal.Withdrawal, l *zerolog.Logger) *HandlerBalance {
+func NewBalanceHandler(storage *storage.DBStorage, l *zerolog.Logger) *HandlerBalance {
 	return &HandlerBalance{
-		logger:              l,
-		storage:             storage,
-		withdrawalProcessor: withdrawalProcessor,
+		logger:  l,
+		storage: storage,
 	}
 }
 
@@ -90,7 +87,7 @@ func (mh *HandlerBalance) MakeWithdrawal(response http.ResponseWriter, req *http
 		return
 	}
 
-	err = mh.withdrawalProcessor.AddWithdrawal(req.Context(), mkWithdrawal.Order, currentUser, mkWithdrawal.Sum)
+	err = mh.storage.MakeWithdrawn(req.Context(), currentUser, mkWithdrawal.Order, mkWithdrawal.Sum)
 	if err != nil {
 		mh.logger.Error().Err(err).Msg("Order Create: error adding withdrawal")
 

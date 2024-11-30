@@ -55,9 +55,7 @@ func (mh *HandlerOrders) GetOrders(response http.ResponseWriter, req *http.Reque
 
 		return
 	}
-
-	// Write response
-	response.Header().Set("Content-Type", "application/json")
+	
 	response.WriteHeader(http.StatusOK)
 	_, _ = response.Write(responseData)
 }
