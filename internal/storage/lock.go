@@ -14,12 +14,12 @@ func AcquireBlockingLock(ctx context.Context, query pgx.Tx, lockKey1, lockKey2 i
 	// Use Exec to execute the blocking lock function pg_advisory_xact_lock
 	_, err := query.Exec(ctx, "SELECT pg_advisory_xact_lock($1, $2)", lockKey1, lockKey2)
 	if err != nil {
-		log.Error().Msg("failed to acquire blocking lock for metric")
+		log.Error().Msg("failed to acquire blocking lock")
 
-		return errors.Wrapf(err, "failed to acquire blocking lock for metric with keys %d, %d", lockKey1, lockKey2)
+		return errors.Wrapf(err, "failed to acquire blocking lock with keys %d, %d", lockKey1, lockKey2)
 	}
 
-	log.Info().Msg("successfully acquired blocking lock for metric")
+	log.Info().Msg("successfully acquired blocking lock")
 
 	return nil
 }

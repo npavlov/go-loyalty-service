@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 
@@ -26,9 +27,39 @@ func NewOrdersHandler(storage *storage.DBStorage, orderProc *orders.Orders, l *z
 	}
 }
 
-func (mh *HandlerOrders) Get(response http.ResponseWriter, req *http.Request) {
+func (mh *HandlerOrders) GetOrders(response http.ResponseWriter, req *http.Request) {
+	currentUser := req.Context().Value("userID").(string)
 
+	dbOrders, err := mh.storage.GetOrders(req.Context(), currentUser)
+	if err != nil {
+		mh.logger.Error().Err(err).Msg("error getting orders")
+
+		http.Error(response, "error getting orders", http.StatusInternalServerError)
+
+		return
+	}
+
+	if len(dbOrders) == 0 {
+		mh.logger.Info().Msg("no orders found")
+
+		http.Error(response, "no orders found", http.StatusNoContent)
+
+		return
+	}
+
+	responseData, err := json.Marshal(dbOrders)
+
+	if err != nil {
+		mh.logger.Error().Err(err).Msg("failed to marshal response")
+		http.Error(response, "internal server error", http.StatusInternalServerError)
+
+		return
+	}
+
+	// Write response
+	response.Header().Set("Content-Type", "application/json")
 	response.WriteHeader(http.StatusOK)
+	_, _ = response.Write(responseData)
 }
 
 func (mh *HandlerOrders) Create(response http.ResponseWriter, req *http.Request) {
@@ -57,6 +88,8 @@ func (mh *HandlerOrders) Create(response http.ResponseWriter, req *http.Request)
 		return
 	}
 
+	currentUser := req.Context().Value("userID").(string)
+
 	order, err := mh.storage.GetOrder(req.Context(), orderNum)
 	if err != nil {
 		mh.logger.Error().Err(err).Msg("Order Create: error getting order")
@@ -64,15 +97,15 @@ func (mh *HandlerOrders) Create(response http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	currentUser := req.Context().Value("userID").(string)
-
 	if order != nil && order.UserId.String() == currentUser {
+		mh.logger.Info().Str("orderNum", orderNum).Msg("Order is already created by this user")
 		response.WriteHeader(http.StatusOK)
 
 		return
 	}
 
 	if order != nil && order.UserId.String() != currentUser {
+		mh.logger.Info().Str("orderNum", orderNum).Msg("Order is already created by other user")
 		response.WriteHeader(http.StatusConflict)
 
 		return
@@ -91,6 +124,6 @@ func (mh *HandlerOrders) Create(response http.ResponseWriter, req *http.Request)
 		mh.logger.Err(err).Msg("Error adding order")
 	}
 
-	_, _ = response.Write([]byte(newOrderId))
 	response.WriteHeader(http.StatusAccepted)
+	_, _ = response.Write([]byte(newOrderId))
 }

@@ -11,19 +11,16 @@ import (
 func AuthMiddleware(jwtSecret string, redisClient *redis.Client) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
-			authHeader := request.Header.Get("Authorization")
-			if authHeader == "" || len(authHeader) < 7 {
-				http.Error(responseWriter, "Missing token", http.StatusUnauthorized)
-				return
-			}
-			tokenString := authHeader[7:]
-
+			// Retrieve the "Authorization" token
+			tokenString := request.Header.Get("Authorization")
+	
 			claims := jwt.MapClaims{}
 			token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 				return []byte(jwtSecret), nil
 			})
 			if err != nil || !token.Valid {
 				http.Error(responseWriter, "Invalid token", http.StatusUnauthorized)
+
 				return
 			}
 

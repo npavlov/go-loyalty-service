@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	auth "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
+	"github.com/npavlov/go-loyalty-service/internal/handlers/balance"
 	health "github.com/npavlov/go-loyalty-service/internal/handlers/health"
 	orders "github.com/npavlov/go-loyalty-service/internal/handlers/orders"
 
@@ -24,6 +25,7 @@ type Router interface {
 	SetHealthRouter(hh *health.HandlerHealth)
 	SetAuthRouter(hh *auth.HandlerAuth)
 	SetOrdersRouter(hh *orders.HandlerOrders)
+	SetBalanceRouter(hb *balance.HandlerBalance)
 	SetMiddlewares()
 	GetRouter() *chi.Mux
 }
@@ -78,46 +80,27 @@ func (cr *CustomRouter) SetOrdersRouter(ho *orders.HandlerOrders) {
 	cr.router.Route("/api/user/orders", func(router chi.Router) {
 		router.With(middlewares.ContentMiddleware("application/json")).
 			With(authMiddleware).
-			Get("/", ho.Get)
+			Get("/", ho.GetOrders)
 		router.With(middlewares.ContentMiddleware("application/json")).
 			With(authMiddleware).
 			Post("/", ho.Create)
 	})
 }
 
-// SetRouter Embedding middleware setup in the constructor.
-//func (cr *CustomRouter) SetRouter(mh *handlers.MetricHandler, hh *handlers.HealthHandler) {
-//	cr.router.Route("/", func(router chi.Router) {
-//		router.Route("/", func(router chi.Router) {
-//			router.With(middlewares.ContentMiddleware("text/html")).
-//				Get("/", mh.Render)
-//		})
-//		router.Route("/update", func(router chi.Router) {
-//			router.With(middlewares.ContentMiddleware("application/json")).
-//				Post("/", mh.UpdateModel)
-//		})
-//		router.Route("/updates", func(router chi.Router) {
-//			router.With(middlewares.ContentMiddleware("application/json")).
-//				Post("/", mh.UpdateModels)
-//		})
-//		router.Route("/update/{metricType}/{metricName}/{value}", func(router chi.Router) {
-//			router.With(middlewares.ContentMiddleware("application/text")).
-//				Post("/", mh.Update)
-//		})
-//		router.Route("/value", func(router chi.Router) {
-//			router.With(middlewares.ContentMiddleware("application/json")).
-//				Post("/", mh.RetrieveModel)
-//		})
-//		router.Route("/value/{metricType}/{metricName}", func(router chi.Router) {
-//			router.With(middlewares.ContentMiddleware("application/text")).
-//				Get("/", mh.Retrieve)
-//		})
-//		router.Route("/ping", func(router chi.Router) {
-//			router.With(middlewares.ContentMiddleware("application/text")).
-//				Get("/", hh.Ping)
-//		})
-//	})
-//}
+func (cr *CustomRouter) SetBalanceRouter(hb *balance.HandlerBalance) {
+	authMiddleware := middlewares.AuthMiddleware(cr.cfg.JwtSecret, cr.redisClient)
+	cr.router.Route("/api/user/", func(router chi.Router) {
+		router.With(middlewares.ContentMiddleware("application/json")).
+			With(authMiddleware).
+			Get("/balance", hb.GetBalance)
+		router.With(middlewares.ContentMiddleware("application/json")).
+			With(authMiddleware).
+			Post("/balance/withdraw", hb.MakeWithdrawal)
+		router.With(middlewares.ContentMiddleware("application/json")).
+			With(authMiddleware).
+			Get("/withdrawals", hb.GetWithdrawals)
+	})
+}
 
 func (cr *CustomRouter) GetRouter() *chi.Mux {
 	return cr.router

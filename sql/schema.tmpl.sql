@@ -43,6 +43,24 @@ CREATE TRIGGER set_updated_at
 CREATE TABLE withdrawals (
                              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                              user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-                             amount NUMERIC(10, 2) NOT NULL,
-                             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                             order_num VARCHAR(255) UNIQUE NOT NULL,
+                             sum NUMERIC(10, 2) NOT NULL,
+                             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+
+-- Add trigger function to update the updated_at column
+CREATE OR REPLACE FUNCTION update_updated_at_column_withdrawals()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = CURRENT_TIMESTAMP;
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for orders table to automatically update updated_at
+CREATE TRIGGER set_updated_at_withdrawals
+    BEFORE UPDATE ON withdrawals
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column_withdrawals();

@@ -65,7 +65,7 @@ func (or *Orders) AddOrder(ctx context.Context, orderNum string, userId string) 
 		return err
 	}
 
-	or.log.Info().Msg("OrderId sent to Kafka")
+	or.log.Info().Interface("order", data).Msg("NewOrder sent to Kafka")
 	return nil
 }
 
@@ -86,7 +86,7 @@ func (or *Orders) ProcessOrders(ctx context.Context) {
 			data := KafkaOrder{}
 			err = json.Unmarshal(msg.Value, &data)
 			if err != nil {
-				or.log.Error().Err(err).Msg("error unmarshalling message from Kafka")
+				or.log.Error().Err(err).Msg("error unmarshalling order message from Kafka")
 
 				return
 			}
@@ -99,14 +99,13 @@ func (or *Orders) ProcessOrders(ctx context.Context) {
 
 			err = utils.RetryOperation(ctx, operation)
 			if err != nil {
-				or.log.Error().Err(err).Msg("error processing orders")
-				_ = or.AddOrder(ctx, data.OrderNum, data.UserId)
-
-				return
+				or.log.Error().Err(err).Str("orderId", data.OrderNum).Msg("error processing order")
+				//Should we add order again?
+				//_ = or.AddOrder(ctx, data.OrderNum, data.UserId)
 			}
 
-			//_ = or.reader.CommitMessages(ctx, msg)
-			or.log.Info().Interface("order", data).Msg("Successfully processed data in Kafka")
+			_ = or.reader.CommitMessages(ctx, msg)
+			or.log.Info().Interface("order", data).Msg("Order successfully processed data in Kafka")
 		}
 	}
 }
