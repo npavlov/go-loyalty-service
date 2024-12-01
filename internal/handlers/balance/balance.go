@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/rs/zerolog"
+
 	"github.com/npavlov/go-loyalty-service/internal/models"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
-	"github.com/rs/zerolog"
 )
 
 type HandlerBalance struct {
@@ -36,7 +37,6 @@ func (mh *HandlerBalance) GetBalance(response http.ResponseWriter, req *http.Req
 	}
 
 	responseData, err := json.Marshal(dbBalance)
-
 	if err != nil {
 		mh.logger.Error().Err(err).Msg("failed to marshal response")
 		http.Error(response, "internal server error", http.StatusInternalServerError)

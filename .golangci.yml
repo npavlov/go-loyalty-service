@@ -11,8 +11,12 @@ linters:
     - wsl
 issues:
   exclude-rules:
-    - path: '(.+)(?:brotli|gzip)\.go'
+    - path: '(.+)(?:brotli|gzip|reporter|wrapper|validator)\.go'
       linters:
+        - wrapcheck
+    - path: '(.+)_test\.go'
+      linters:
+        - funlen
         - wrapcheck
 linters-settings:
   varnamelen:

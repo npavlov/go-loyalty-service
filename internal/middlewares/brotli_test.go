@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/npavlov/go-metrics-service/internal/server/middlewares"
+	"github.com/npavlov/go-loyalty-service/internal/middlewares"
 )
 
 func TestBrotliMiddleware(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/npavlov/go-metrics-service/internal/server/middlewares"
+	"github.com/npavlov/go-loyalty-service/internal/middlewares"
 )
 
 func TestContentMiddleware(t *testing.T) {

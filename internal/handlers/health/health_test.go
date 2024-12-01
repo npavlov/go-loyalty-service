@@ -6,14 +6,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
-	"github.com/npavlov/go-loyalty-service/internal/handlers/health"
-
-	"github.com/npavlov/go-loyalty-service/internal/logger"
 	"github.com/pashagolub/pgxmock/v4"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
+	handlers "github.com/npavlov/go-loyalty-service/internal/handlers/health"
+	"github.com/npavlov/go-loyalty-service/internal/logger"
 )
 
 var errPingError = errors.New("ping error")

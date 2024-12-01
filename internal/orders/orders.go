@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/rs/zerolog"
+	"github.com/segmentio/kafka-go"
+
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
-	"github.com/rs/zerolog"
-	"github.com/segmentio/kafka-go"
 )
 
 type KafkaOrder struct {
@@ -50,7 +51,6 @@ func (or *Orders) AddOrder(ctx context.Context, orderNum string, userId string) 
 	}
 
 	jsonData, err := json.Marshal(data)
-
 	if err != nil {
 		or.log.Error().Err(err).Msg("Error marshalling data for Kafka")
 
@@ -104,8 +104,8 @@ func (or *Orders) ProcessOrders(ctx context.Context) {
 				or.log.Info().Interface("order", data).Msg("Order can't be processed in Kafka, skipping")
 				_ = or.reader.CommitMessages(ctx, msg)
 				continue
-				//Should we add order again?
-				//_ = or.AddOrder(ctx, data.OrderNum, data.UserId)
+				// Should we add order again?
+				// _ = or.AddOrder(ctx, data.OrderNum, data.UserId)
 			}
 
 			_ = or.reader.CommitMessages(ctx, msg)
@@ -119,13 +119,11 @@ func (or *Orders) checkOrderStatus(ctx context.Context, message KafkaOrder) erro
 	or.log.Info().Interface("OrderNum", message).Msg("Retrieving Order Id")
 
 	result, err := or.sender.SendPostRequest(ctx, message.OrderNum)
-
 	if err != nil {
 		return err
 	}
 
 	err = or.storage.UpdateOrder(ctx, result, message.UserId)
-
 	if err != nil {
 		return err
 	}

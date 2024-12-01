@@ -6,12 +6,12 @@ import (
 )
 
 type Withdrawal struct {
-	OrderId   string    `json:"order" db:"order_num"`
-	Sum       *float64  `json:"sum" db:"amount"`
-	CreatedAt time.Time `json:"processed_at" db:"updated_at"`
+	OrderId   string    `db:"order_num"  json:"order"`
+	Sum       *float64  `db:"amount"     json:"sum"`
+	CreatedAt time.Time `db:"updated_at" json:"processed_at"`
 }
 
-// MarshalJSON ensures CreatedAt is formatted as RFC3339
+// MarshalJSON ensures CreatedAt is formatted as RFC3339.
 func (w Withdrawal) MarshalJSON() ([]byte, error) {
 	// Create an alias to avoid infinite recursion
 	type Alias Withdrawal

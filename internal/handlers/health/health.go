@@ -3,8 +3,9 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
 	"github.com/rs/zerolog"
+
+	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
 )
 
 type HandlerHealth struct {

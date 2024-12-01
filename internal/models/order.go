@@ -17,15 +17,15 @@ const (
 )
 
 type Order struct {
-	Id        uuid.UUID `json:"-" db:"id"`
-	OrderId   string    `json:"number" db:"order_num"`
-	UserId    uuid.UUID `json:"-" db:"user_id"`
-	Status    Status    `json:"status" db:"status"`
-	Accrual   *float64  `json:"accrual,omitempty" db:"amount"`
-	CreatedAt time.Time `json:"uploaded_at" db:"updated_at"`
+	Id        uuid.UUID `db:"id"         json:"-"`
+	OrderId   string    `db:"order_num"  json:"number"`
+	UserId    uuid.UUID `db:"user_id"    json:"-"`
+	Status    Status    `db:"status"     json:"status"`
+	Accrual   *float64  `db:"amount"     json:"accrual,omitempty"`
+	CreatedAt time.Time `db:"updated_at" json:"uploaded_at"`
 }
 
-// MarshalJSON ensures CreatedAt is formatted as RFC3339
+// MarshalJSON ensures CreatedAt is formatted as RFC3339.
 func (o Order) MarshalJSON() ([]byte, error) {
 	// Create an alias to avoid infinite recursion
 	type Alias Order

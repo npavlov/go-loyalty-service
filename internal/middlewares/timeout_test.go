@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/npavlov/go-metrics-service/internal/server/middlewares"
+	"github.com/npavlov/go-loyalty-service/internal/middlewares"
 )
 
 // TestTimeoutMiddleware_Success ensures that the middleware works correctly within the allowed time limit.

@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
 	"github.com/pkg/errors"
+
+	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
 )
 
 type WithTxFunc func(ctx context.Context, tx pgx.Tx) error

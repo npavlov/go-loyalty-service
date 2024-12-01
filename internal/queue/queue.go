@@ -3,8 +3,9 @@ package queue
 import (
 	"time"
 
-	"github.com/npavlov/go-loyalty-service/internal/config"
 	"github.com/segmentio/kafka-go"
+
+	"github.com/npavlov/go-loyalty-service/internal/config"
 )
 
 type Queue struct {

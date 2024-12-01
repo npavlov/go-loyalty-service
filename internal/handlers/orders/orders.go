@@ -6,10 +6,11 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/rs/zerolog"
+
 	"github.com/npavlov/go-loyalty-service/internal/orders"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
-	"github.com/rs/zerolog"
 )
 
 type HandlerOrders struct {
@@ -48,14 +49,13 @@ func (mh *HandlerOrders) GetOrders(response http.ResponseWriter, req *http.Reque
 	}
 
 	responseData, err := json.Marshal(dbOrders)
-
 	if err != nil {
 		mh.logger.Error().Err(err).Msg("failed to marshal response")
 		http.Error(response, "internal server error", http.StatusInternalServerError)
 
 		return
 	}
-	
+
 	response.WriteHeader(http.StatusOK)
 	_, _ = response.Write(responseData)
 }

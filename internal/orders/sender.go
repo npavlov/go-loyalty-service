@@ -8,9 +8,10 @@ import (
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/rs/zerolog"
+
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	"github.com/npavlov/go-loyalty-service/internal/models"
-	"github.com/rs/zerolog"
 )
 
 type Sender struct {
@@ -37,7 +38,6 @@ func (sender *Sender) SendPostRequest(ctx context.Context, orderNumber string) (
 		SetContext(ctx).
 		SetHeader("Accept", "application/json").
 		Get(url)
-
 	if err != nil {
 		sender.l.Error().Err(err).Send()
 

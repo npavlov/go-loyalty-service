@@ -7,22 +7,22 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-	authHandler "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
-	balanceHandler "github.com/npavlov/go-loyalty-service/internal/handlers/balance"
-	ordersHandler "github.com/npavlov/go-loyalty-service/internal/handlers/orders"
-	"github.com/npavlov/go-loyalty-service/internal/orders"
-	"github.com/npavlov/go-loyalty-service/internal/queue"
-	"github.com/npavlov/go-loyalty-service/internal/storage"
-	"github.com/redis/go-redis/v9"
-
 	"github.com/joho/godotenv"
+	"github.com/npavlov/go-loyalty-service/internal/redis"
+	"github.com/rs/zerolog"
+
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
+	authHandler "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
+	balanceHandler "github.com/npavlov/go-loyalty-service/internal/handlers/balance"
 	healthHandler "github.com/npavlov/go-loyalty-service/internal/handlers/health"
+	ordersHandler "github.com/npavlov/go-loyalty-service/internal/handlers/orders"
 	"github.com/npavlov/go-loyalty-service/internal/logger"
+	"github.com/npavlov/go-loyalty-service/internal/orders"
+	"github.com/npavlov/go-loyalty-service/internal/queue"
 	"github.com/npavlov/go-loyalty-service/internal/router"
+	"github.com/npavlov/go-loyalty-service/internal/storage"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
-	"github.com/rs/zerolog"
 )
 
 var (
@@ -58,13 +58,9 @@ func main() {
 
 	st := storage.NewDBStorage(dbManager.DB, log)
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     cfg.Redis, // use default Addr
-		Password: "",        // no password set
-		DB:       0,         // use default DB
-	})
+	memStorage := redis.NewRStorage(*cfg)
 
-	if err := redisClient.Ping(ctx).Err(); err != nil {
+	if err := memStorage.Ping(ctx); err != nil {
 		log.Fatal().Err(err).Msg("Error connecting to redis")
 	}
 
@@ -77,11 +73,11 @@ func main() {
 	go ordersProcessor.ProcessOrders(ctx)
 
 	hHandlers := healthHandler.NewHealthHandler(dbManager, log)
-	aHandlers := authHandler.NewAuthHandler(st, cfg, redisClient, log)
+	aHandlers := authHandler.NewAuthHandler(st, cfg, memStorage, log)
 	oHandlers := ordersHandler.NewOrdersHandler(st, ordersProcessor, log)
 	bHandlers := balanceHandler.NewBalanceHandler(st, log)
 
-	var cRouter router.Router = router.NewCustomRouter(cfg, redisClient, log)
+	var cRouter router.Router = router.NewCustomRouter(cfg, memStorage, log)
 	cRouter.SetMiddlewares()
 	cRouter.SetHealthRouter(hHandlers)
 	cRouter.SetAuthRouter(aHandlers)

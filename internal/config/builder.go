@@ -9,12 +9,12 @@ import (
 )
 
 type Config struct {
-	Address        string `env:"RUN_ADDRESS"        envDefault:"localhost:8081"`
+	Address        string `env:"RUN_ADDRESS"            envDefault:"localhost:8081"`
 	AccrualAddress string `env:"ACCRUAL_SYSTEM_ADDRESS" envDefault:"localhost:8080"`
-	Database       string `env:"DATABASE_URI"          envDefault:""`
-	JwtSecret      string `env:"JWT_SECRET"          envDefault:""`
-	Redis          string `env:"REDIS"          envDefault:"localhost:6379"`
-	Kafka          string `env:"KAFKA"          envDefault:"localhost:9092"`
+	Database       string `env:"DATABASE_URI"           envDefault:""`
+	JwtSecret      string `env:"JWT_SECRET"             envDefault:""`
+	Redis          string `env:"REDIS"                  envDefault:"localhost:6379"`
+	Kafka          string `env:"KAFKA"                  envDefault:"localhost:9092"`
 }
 
 // Builder defines the builder for the Config struct.

@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// LuhnCheck checks if the number is valid according to the Luhn algorithm
+// LuhnCheck checks if the number is valid according to the Luhn algorithm.
 func LuhnCheck(number string) bool {
 	// Reverse the number for easier calculation from right to left
 	reversedNumber := reverseString(number)
@@ -29,7 +29,7 @@ func LuhnCheck(number string) bool {
 	return sum%10 == 0
 }
 
-// Reverse a string
+// Reverse a string.
 func reverseString(s string) string {
 	var reversed strings.Builder
 	for i := len(s) - 1; i >= 0; i-- {

@@ -5,16 +5,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/npavlov/go-loyalty-service/internal/redis"
+	"github.com/rs/zerolog"
+
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	auth "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
 	"github.com/npavlov/go-loyalty-service/internal/handlers/balance"
 	health "github.com/npavlov/go-loyalty-service/internal/handlers/health"
 	orders "github.com/npavlov/go-loyalty-service/internal/handlers/orders"
-
-	"github.com/redis/go-redis/v9"
-
 	"github.com/npavlov/go-loyalty-service/internal/middlewares"
-	"github.com/rs/zerolog"
 )
 
 const (
@@ -31,25 +30,25 @@ type Router interface {
 }
 
 type CustomRouter struct {
-	router      *chi.Mux
-	logger      *zerolog.Logger
-	cfg         *config.Config
-	redisClient *redis.Client
+	router     *chi.Mux
+	logger     *zerolog.Logger
+	cfg        *config.Config
+	memStorage redis.MemStorage
 }
 
 // NewCustomRouter - constructor for CustomRouter.
-func NewCustomRouter(cfg *config.Config, redisClient *redis.Client, l *zerolog.Logger) *CustomRouter {
+func NewCustomRouter(cfg *config.Config, memStorage redis.MemStorage, l *zerolog.Logger) *CustomRouter {
 	return &CustomRouter{
-		router:      chi.NewRouter(),
-		logger:      l,
-		cfg:         cfg,
-		redisClient: redisClient,
+		router:     chi.NewRouter(),
+		logger:     l,
+		cfg:        cfg,
+		memStorage: memStorage,
 	}
 }
 
 func (cr *CustomRouter) SetMiddlewares() {
 	cr.router.Use(middlewares.LoggingMiddleware(cr.logger))
-	//cr.router.Use(middlewares.TimeoutMiddleware(defaultTimeout))
+	cr.router.Use(middlewares.TimeoutMiddleware(defaultTimeout))
 	cr.router.Use(middleware.Recoverer)
 	cr.router.Use(middlewares.GzipMiddleware)
 	cr.router.Use(middlewares.BrotliMiddleware)
@@ -75,7 +74,7 @@ func (cr *CustomRouter) SetAuthRouter(ha *auth.HandlerAuth) {
 }
 
 func (cr *CustomRouter) SetOrdersRouter(ho *orders.HandlerOrders) {
-	authMiddleware := middlewares.AuthMiddleware(cr.cfg.JwtSecret, cr.redisClient)
+	authMiddleware := middlewares.AuthMiddleware(cr.cfg.JwtSecret, cr.memStorage)
 
 	cr.router.Route("/api/user/orders", func(router chi.Router) {
 		router.With(middlewares.ContentMiddleware("application/json")).
@@ -88,7 +87,7 @@ func (cr *CustomRouter) SetOrdersRouter(ho *orders.HandlerOrders) {
 }
 
 func (cr *CustomRouter) SetBalanceRouter(hb *balance.HandlerBalance) {
-	authMiddleware := middlewares.AuthMiddleware(cr.cfg.JwtSecret, cr.redisClient)
+	authMiddleware := middlewares.AuthMiddleware(cr.cfg.JwtSecret, cr.memStorage)
 	cr.router.Route("/api/user/", func(router chi.Router) {
 		router.With(middlewares.ContentMiddleware("application/json")).
 			With(authMiddleware).

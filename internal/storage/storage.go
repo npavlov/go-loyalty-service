@@ -7,11 +7,12 @@ import (
 
 	"github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+
 	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
 	"github.com/npavlov/go-loyalty-service/internal/models"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 )
 
 type DBStorage struct {
@@ -36,7 +37,6 @@ func (storage *DBStorage) AddUser(ctx context.Context, username string, password
 		Suffix("RETURNING id").
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
-
 	if err != nil {
 		return "", err
 	}
@@ -61,7 +61,6 @@ func (storage *DBStorage) GetUser(ctx context.Context, username string) (*models
 		Where(squirrel.Eq{"username": username}).
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
-
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +88,6 @@ func (storage *DBStorage) GetOrder(ctx context.Context, orderNum string) (*model
 		Where(squirrel.Eq{"order_num": orderNum}).
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
-
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +123,6 @@ func (storage *DBStorage) GetOrders(ctx context.Context, userID string) ([]model
 		OrderBy("created_at DESC"). // Order by created_at in descending order
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
@@ -178,7 +175,6 @@ func (storage *DBStorage) CreateOrder(ctx context.Context, orderNum string, user
 		Suffix("RETURNING id").
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
-
 	if err != nil {
 		return "", err
 	}
@@ -186,7 +182,6 @@ func (storage *DBStorage) CreateOrder(ctx context.Context, orderNum string, user
 	// Prepare to capture the returned order ID
 	var orderID string
 	err = storage.dbCon.QueryRow(ctx, sql, args...).Scan(&orderID)
-
 	if err != nil {
 		return "", err
 	}
@@ -214,7 +209,6 @@ func (storage *DBStorage) UpdateOrder(ctx context.Context, update *models.Accrua
 			Where(squirrel.Eq{"user_id": userId}).
 			PlaceholderFormat(squirrel.Dollar).
 			ToSql()
-
 		if err != nil {
 			return err
 		}
@@ -292,7 +286,6 @@ func (storage *DBStorage) GetBalance(ctx context.Context, userID string) (*model
 		Where(squirrel.Eq{"id": userID}).
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
-
 	if err != nil {
 		return nil, err
 	}
@@ -323,7 +316,6 @@ func (storage *DBStorage) MakeWithdrawn(ctx context.Context, userId string, orde
 			Where(squirrel.Eq{"id": userId}).
 			PlaceholderFormat(squirrel.Dollar).
 			ToSql()
-
 		if err != nil {
 			return fmt.Errorf("failed to build balance query: %w", err)
 		}
@@ -346,7 +338,6 @@ func (storage *DBStorage) MakeWithdrawn(ctx context.Context, userId string, orde
 			Values(userId, sum, orderNum).
 			PlaceholderFormat(squirrel.Dollar).
 			ToSql()
-
 		if err != nil {
 			return fmt.Errorf("failed to build withdrawal insert query: %w", err)
 		}
@@ -364,7 +355,6 @@ func (storage *DBStorage) MakeWithdrawn(ctx context.Context, userId string, orde
 			Where(squirrel.Eq{"id": userId}).
 			PlaceholderFormat(squirrel.Dollar).
 			ToSql()
-
 		if err != nil {
 			return err
 		}
@@ -388,7 +378,6 @@ func (storage *DBStorage) GetWithdrawal(ctx context.Context, orderNum string) (*
 		OrderBy("created_at DESC").
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
@@ -404,7 +393,6 @@ func (storage *DBStorage) GetWithdrawal(ctx context.Context, orderNum string) (*
 	var createdAt string
 	err = storage.dbCon.QueryRow(ctx, sql, args...).
 		Scan(&withdrawal.OrderId, &withdrawal.Sum, &createdAt)
-	
 	if err != nil {
 		if utils.CheckNoRows(err) {
 			return nil, nil
@@ -430,7 +418,6 @@ func (storage *DBStorage) GetWithdrawals(ctx context.Context, userId string) ([]
 		OrderBy("created_at DESC").
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
