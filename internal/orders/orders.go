@@ -62,6 +62,8 @@ func (or *Orders) AddOrder(ctx context.Context, orderNum string, userId string) 
 		Value: jsonData,
 	})
 	if err != nil {
+		or.log.Error().Err(err).Msg("Error writing to kafka")
+
 		return err
 	}
 
@@ -70,6 +72,8 @@ func (or *Orders) AddOrder(ctx context.Context, orderNum string, userId string) 
 }
 
 func (or *Orders) ProcessOrders(ctx context.Context) {
+	or.log.Info().Msg("Processing orders from Kafka")
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -78,7 +82,7 @@ func (or *Orders) ProcessOrders(ctx context.Context) {
 		default:
 			msg, err := or.reader.FetchMessage(ctx)
 			if err != nil {
-				or.log.Error().Err(err).Msg("error reading message")
+				or.log.Error().Err(err).Msg("error reading message from kafka")
 
 				continue
 			}

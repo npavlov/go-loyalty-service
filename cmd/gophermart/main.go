@@ -51,8 +51,8 @@ func main() {
 
 	dbManager := dbmanager.NewDBManager(cfg.Database, log).Connect(ctx).ApplyMigrations()
 	defer dbManager.Close()
-	if err != nil {
-		log.Error().Err(err).Msg("Error initialising db manager")
+	if dbManager.DB == nil {
+		panic(errors.New("database is not connected"))
 	}
 
 	st := storage.NewDBStorage(dbManager.DB, log)
@@ -60,10 +60,10 @@ func main() {
 	memStorage := redis.NewRStorage(*cfg)
 
 	if err := memStorage.Ping(ctx); err != nil {
-		log.Fatal().Err(err).Msg("Error connecting to redis")
+		log.Error().Err(err).Msg("Error connecting to redis")
 	}
 
-	kafkaQueue := queue.NewQueue(cfg)
+	kafkaQueue := queue.NewQueue(cfg, log)
 	// Kafka Producers
 	orderWriter, orderReader, closeOrder := kafkaQueue.CreateGroup(orderTopic)
 	defer closeOrder()

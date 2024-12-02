@@ -57,6 +57,8 @@ func (m *DBManager) Connect(ctx context.Context) *DBManager {
 	}
 
 	if err := pool.Ping(ctx); err != nil {
+		log.Error().Err(err).Msg("failed to ping database")
+
 		return m
 	}
 
