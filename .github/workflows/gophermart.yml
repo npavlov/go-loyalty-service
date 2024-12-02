@@ -1,12 +1,7 @@
 name: gophermart
 
 on:
-  workflow_dispatch:
-  pull_request:
-  push:
-    branches:
-      - main
-      - master
+  workflow_call:
 
 jobs:
 
@@ -33,24 +28,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
-      kafka:
-        image: wurstmeister/kafka:latest
-        options: >-
-          --health-cmd="nc -z localhost 9095"
-          --health-timeout=3s
-          --health-retries=3
-          -p 9095:9095
-          -p 2181:2181
-        ports:
-          - 9095:9095  # Kafka port
-          - 2181:2181  # Zookeeper port
-        env:
-          KAFKA_ADVERTISED_LISTENER: INSIDE://localhost:9095
-          KAFKA_LISTENER_SECURITY_PROTOCOL: PLAINTEXT
-          KAFKA_LISTENER_NAME: INSIDE
-          KAFKA_LISTENER_PORT: 9095
-          KAFKA_LISTENER_INTERNAL_PORT: 9095
-          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
 
     steps:
       - name: Checkout code

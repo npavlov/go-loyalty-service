@@ -1,0 +1,29 @@
+name: "kafka-prepare"
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Run Kafka KRaft Broker
+        uses: spicyparrot/kafka-kraft-action@v1.1.0
+        with:
+          kafka-version: "3.7.0"
+          kafka-topics: "example,1"
+
+      # kafka_runner_address env var created by the above step
+      - name: Call Gophermart
+        uses: ./.github/workflows/gophermart.yml # Call the reusable workflow
+        env:
+          KAFKA_BOOTSTRAP_SERVERS: ${{ env.kafka_runner_address }}:9093
