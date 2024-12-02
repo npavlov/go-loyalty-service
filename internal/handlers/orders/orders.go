@@ -15,12 +15,12 @@ import (
 
 type HandlerOrders struct {
 	logger         *zerolog.Logger
-	storage        *storage.DBStorage
-	orderProcessor *orders.Orders
+	storage        storage.Storage
+	orderProcessor orders.QueueProcessor
 }
 
 // NewOrdersHandler - constructor for HealthHandler.
-func NewOrdersHandler(storage *storage.DBStorage, orderProc *orders.Orders, l *zerolog.Logger) *HandlerOrders {
+func NewOrdersHandler(storage storage.Storage, orderProc orders.QueueProcessor, l *zerolog.Logger) *HandlerOrders {
 	return &HandlerOrders{
 		logger:         l,
 		storage:        storage,

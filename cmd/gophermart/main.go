@@ -8,12 +8,12 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
+	authHandler "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
 	"github.com/npavlov/go-loyalty-service/internal/redis"
 	"github.com/rs/zerolog"
 
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
-	authHandler "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
 	balanceHandler "github.com/npavlov/go-loyalty-service/internal/handlers/balance"
 	healthHandler "github.com/npavlov/go-loyalty-service/internal/handlers/health"
 	ordersHandler "github.com/npavlov/go-loyalty-service/internal/handlers/orders"

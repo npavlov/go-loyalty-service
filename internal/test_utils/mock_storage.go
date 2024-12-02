@@ -15,16 +15,16 @@ type MockStorage struct {
 	mu          sync.Mutex
 	Users       map[string]*models.Login
 	orders      map[string]*models.Order
-	withdrawals map[string]*models.Withdrawal
-	balances    map[string]*models.Balance
+	Withdrawals map[string]*models.Withdrawal
+	Balances    map[string]*models.Balance
 }
 
 func NewMockStorage() *MockStorage {
 	return &MockStorage{
 		Users:       make(map[string]*models.Login),
 		orders:      make(map[string]*models.Order),
-		withdrawals: make(map[string]*models.Withdrawal),
-		balances:    make(map[string]*models.Balance),
+		Withdrawals: make(map[string]*models.Withdrawal),
+		Balances:    make(map[string]*models.Balance),
 	}
 }
 
@@ -127,6 +127,7 @@ func (m *MockStorage) UpdateOrder(_ context.Context, update *models.Accrual, use
 	if update.Accrual != nil {
 		order.Accrual = update.Accrual
 	}
+	m.orders[update.OrderId] = order
 
 	return nil
 }
@@ -135,7 +136,7 @@ func (m *MockStorage) GetBalance(_ context.Context, userID string) (*models.Bala
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	balance, exists := m.balances[userID]
+	balance, exists := m.Balances[userID]
 	if !exists {
 		return &models.Balance{}, nil
 	}
@@ -147,7 +148,7 @@ func (m *MockStorage) MakeWithdrawn(_ context.Context, userId string, orderNum s
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	balance, exists := m.balances[userId]
+	balance, exists := m.Balances[userId]
 	if !exists || balance.Balance < sum {
 		return errors.New("insufficient balance")
 	}
@@ -156,7 +157,7 @@ func (m *MockStorage) MakeWithdrawn(_ context.Context, userId string, orderNum s
 	balance.Balance -= sum
 	balance.Withdrawn += sum
 
-	m.withdrawals[orderNum] = &models.Withdrawal{
+	m.Withdrawals[orderNum] = &models.Withdrawal{
 		OrderId:   orderNum,
 		Sum:       float64Ptr(sum),
 		CreatedAt: time.Now(),
@@ -169,7 +170,7 @@ func (m *MockStorage) GetWithdrawal(_ context.Context, orderNum string) (*models
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	withdrawal, exists := m.withdrawals[orderNum]
+	withdrawal, exists := m.Withdrawals[orderNum]
 	if !exists {
 		return nil, nil
 	}
@@ -182,8 +183,8 @@ func (m *MockStorage) GetWithdrawals(_ context.Context, userId string) ([]models
 	defer m.mu.Unlock()
 
 	var withdrawals []models.Withdrawal
-	for _, wd := range m.withdrawals {
-		if wd.OrderId == userId {
+	for _, wd := range m.Withdrawals {
+		if wd.UserId == userId {
 			withdrawals = append(withdrawals, *wd)
 		}
 	}

@@ -13,11 +13,11 @@ import (
 
 type HandlerBalance struct {
 	logger  *zerolog.Logger
-	storage *storage.DBStorage
+	storage storage.Storage
 }
 
 // NewBalanceHandler - constructor for HealthHandler.
-func NewBalanceHandler(storage *storage.DBStorage, l *zerolog.Logger) *HandlerBalance {
+func NewBalanceHandler(storage storage.Storage, l *zerolog.Logger) *HandlerBalance {
 	return &HandlerBalance{
 		logger:  l,
 		storage: storage,
