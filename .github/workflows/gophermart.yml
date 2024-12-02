@@ -26,6 +26,32 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      redis:
+        image: redis
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      kafka:
+        image: wurstmeister/kafka:latest
+        options: >-
+          --health-cmd="nc -z localhost 9095"
+          --health-timeout=3s
+          --health-retries=3
+          -p 9095:9095
+          -p 2181:2181
+        ports:
+          - 9095:9095  # Kafka port
+          - 2181:2181  # Zookeeper port
+        env:
+          KAFKA_ADVERTISED_LISTENER: INSIDE://localhost:9095
+          KAFKA_LISTENER_SECURITY_PROTOCOL: PLAINTEXT
+          KAFKA_LISTENER_NAME: INSIDE
+          KAFKA_LISTENER_PORT: 9095
+          KAFKA_LISTENER_INTERNAL_PORT: 9095
+          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -51,6 +77,12 @@ jobs:
           (cd cmd/accrual && chmod +x accrual_linux_amd64)
 
       - name: Test
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: praktikum
+          JWT_SECRET: test_token
+          KAFKA: ${{ env.kafka_runner_address }}:9093
+          REDIS: redis:6379
         run: |
           gophermarttest \
             -test.v -test.run=^TestGophermart$ \

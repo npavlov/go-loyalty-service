@@ -26,8 +26,7 @@ import (
 )
 
 var (
-	orderTopic      = "orders"
-	withdrawalTopic = "withdrawals"
+	orderTopic = "orders"
 )
 
 func main() {
