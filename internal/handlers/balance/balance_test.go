@@ -184,6 +184,91 @@ func TestHandlerBalance_GetWithdrawals_NoContent(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
 
+func TestHandlerBalance_GetBalance_UserNotFound(t *testing.T) {
+	t.Parallel()
+
+	handler, _, _ := setupHandlerBalance()
+
+	// Create a request with no user ID in the context
+	req := httptest.NewRequest(http.MethodGet, "/api/user/balance", nil)
+	rec := httptest.NewRecorder()
+
+	// Call the handler
+	handler.GetBalance(rec, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+	assert.Contains(t, rec.Body.String(), "user id not found")
+}
+
+func TestHandlerBalance_MakeWithdrawal_UserNotFound(t *testing.T) {
+	t.Parallel()
+
+	handler, _, _ := setupHandlerBalance()
+
+	withdrawal := models.MakeWithdrawal{
+		Order: testutils.GenerateLuhnNumber(16),
+		Sum:   50.0,
+	}
+	body, err := json.Marshal(withdrawal)
+	require.NoError(t, err)
+
+	// Create a request with no user ID in the context
+	req := httptest.NewRequest(http.MethodPost, "/api/user/withdraw", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	// Call the handler
+	handler.MakeWithdrawal(rec, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+	assert.Contains(t, rec.Body.String(), "user id not found")
+}
+
+func TestHandlerBalance_GetWithdrawals_UserNotFound(t *testing.T) {
+	t.Parallel()
+
+	handler, _, _ := setupHandlerBalance()
+
+	// Create a request with no user ID in the context
+	req := httptest.NewRequest(http.MethodGet, "/api/user/withdrawals", nil)
+	rec := httptest.NewRecorder()
+
+	// Call the handler
+	handler.GetWithdrawals(rec, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+	assert.Contains(t, rec.Body.String(), "user id not found")
+}
+
+func TestHandlerBalance_MakeWithdrawal_InvalidOrderNumber(t *testing.T) {
+	t.Parallel()
+
+	handler, _, ctx := setupHandlerBalance()
+
+	withdrawal := models.MakeWithdrawal{
+		Order: "invalid-order", // This is not a valid Luhn number
+		Sum:   50.0,
+	}
+	body, err := json.Marshal(withdrawal)
+	require.NoError(t, err)
+
+	// Create a request
+	req := httptest.NewRequest(http.MethodPost, "/api/user/withdraw", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	// Call the handler
+	handler.MakeWithdrawal(rec, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Invalid order number")
+}
+
 func float64Ptr(f float64) *float64 {
 	return &f
 }
