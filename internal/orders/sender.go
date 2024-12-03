@@ -14,7 +14,7 @@ import (
 	"github.com/npavlov/go-loyalty-service/internal/models"
 )
 
-var CantProcessError = errors.New("can't process orders")
+var ErrCantProcessError = errors.New("can't process orders")
 
 type Sender struct {
 	cfg *config.Config
@@ -63,5 +63,5 @@ func (sender *Sender) SendPostRequest(ctx context.Context, orderNumber string) (
 		sender.l.Error().Int("status", resp.StatusCode()).Msg("Can't process orders, retry")
 	}
 
-	return nil, CantProcessError
+	return nil, ErrCantProcessError
 }

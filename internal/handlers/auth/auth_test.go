@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -55,10 +54,8 @@ func TestHandlerAuth_RegisterHandler(t *testing.T) {
 	authHandler.RegisterHandler(rec, req)
 
 	// Retrieve the response and ensure the body is closed
+	//nolint:bodyclose
 	res := rec.Result()
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(res.Body)
 
 	// Assertions
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -80,7 +77,7 @@ func TestHandlerAuth_LoginHandler(t *testing.T) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	userID := uuid.New().String()
 	mockStorage.Users[username] = &models.Login{
-		UserId:         uuid.MustParse(userID),
+		UserID:         uuid.MustParse(userID),
 		HashedPassword: string(hashedPassword),
 	}
 
@@ -130,7 +127,7 @@ func TestHandlerAuth_LoginHandlerInvalidPassword(t *testing.T) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	userID := uuid.New().String()
 	mockStorage.Users[username] = &models.Login{
-		UserId:         uuid.MustParse(userID),
+		UserID:         uuid.MustParse(userID),
 		HashedPassword: string(hashedPassword),
 	}
 

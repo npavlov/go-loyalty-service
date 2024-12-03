@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+const (
+	DoubleThreshold = 9  // Threshold for subtracting
+	Modulus         = 10 // Modulus for Luhn algorithm
+)
+
 // LuhnCheck checks if the number is valid according to the Luhn algorithm.
 func LuhnCheck(number string) bool {
 	// Reverse the number for easier calculation from right to left
@@ -18,15 +23,15 @@ func LuhnCheck(number string) bool {
 		// Double every second digit
 		if i%2 != 0 {
 			digit *= 2
-			if digit > 9 {
-				digit -= 9 // Subtract 9 if the result is greater than 9
+			if digit > DoubleThreshold {
+				digit -= DoubleThreshold // Subtract threshold if the result is greater
 			}
 		}
 		sum += digit
 	}
 
-	// Check if the sum is divisible by 10
-	return sum%10 == 0
+	// Check if the sum is divisible by the modulus
+	return sum%Modulus == 0
 }
 
 // Reverse a string.
@@ -35,5 +40,6 @@ func reverseString(s string) string {
 	for i := len(s) - 1; i >= 0; i-- {
 		reversed.WriteByte(s[i])
 	}
+
 	return reversed.String()
 }

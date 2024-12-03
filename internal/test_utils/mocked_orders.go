@@ -6,9 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	"github.com/npavlov/go-loyalty-service/internal/models"
+	"github.com/npavlov/go-loyalty-service/internal/orders"
 )
 
 const (
@@ -17,15 +19,10 @@ const (
 	simulateTimeout = 100 * time.Millisecond
 )
 
-type KafkaOrder struct {
-	OrderNum string `json:"orderNum"`
-	UserId   string `json:"UserId"`
-}
-
 type MockOrders struct {
 	log         *zerolog.Logger
 	storage     *MockStorage
-	orderChan   chan KafkaOrder
+	orderChan   chan orders.KafkaOrder
 	wg          sync.WaitGroup
 	stopChan    chan struct{}
 	processing  map[string]bool // Tracks currently processing orders
@@ -36,7 +33,7 @@ func NewMockOrders(storage *MockStorage, log *zerolog.Logger) *MockOrders {
 	return &MockOrders{
 		log:         log,
 		storage:     storage,
-		orderChan:   make(chan KafkaOrder, bufferSize), // Buffered channel for async processing
+		orderChan:   make(chan orders.KafkaOrder, bufferSize), // Buffered channel for async processing
 		stopChan:    make(chan struct{}),
 		processing:  make(map[string]bool),
 		wg:          sync.WaitGroup{},
@@ -44,21 +41,23 @@ func NewMockOrders(storage *MockStorage, log *zerolog.Logger) *MockOrders {
 	}
 }
 
-func (mo *MockOrders) AddOrder(ctx context.Context, orderNum string, userId string) error {
-	data := KafkaOrder{
+func (mo *MockOrders) AddOrder(ctx context.Context, orderNum string, userID string) error {
+	data := orders.KafkaOrder{
 		OrderNum: orderNum,
-		UserId:   userId,
+		UserID:   userID,
 	}
 
-	mo.log.Info().Msgf("Trying to add order %s for user %s to the queue", orderNum, userId)
+	mo.log.Info().Msgf("Trying to add order %s for user %s to the queue", orderNum, userID)
 
 	select {
 	case mo.orderChan <- data:
 		mo.log.Info().Interface("order", data).Msg("New order added to the mock channel")
+
 		return nil
 	case <-ctx.Done():
 		mo.log.Error().Msg("Context canceled while adding order")
-		return ctx.Err()
+
+		return errors.Wrap(ctx.Err(), "Context canceled while adding order")
 	}
 }
 
@@ -70,6 +69,7 @@ func (mo *MockOrders) ProcessOrders(ctx context.Context) {
 			select {
 			case <-mo.stopChan:
 				log.Println("Stopping mock order processing...")
+
 				return
 			case order := <-mo.orderChan:
 				mo.processOrder(ctx, order)
@@ -83,7 +83,7 @@ func (mo *MockOrders) StopProcessing() {
 	mo.wg.Wait()
 }
 
-func (mo *MockOrders) processOrder(ctx context.Context, order KafkaOrder) {
+func (mo *MockOrders) processOrder(ctx context.Context, order orders.KafkaOrder) {
 	mo.log.Info().Interface("order", order).Msg("Mock processing order")
 
 	// Check if the order is already being processed
@@ -91,6 +91,7 @@ func (mo *MockOrders) processOrder(ctx context.Context, order KafkaOrder) {
 	if mo.processing[order.OrderNum] {
 		mo.log.Warn().Str("orderNum", order.OrderNum).Msg("Order already being processed")
 		mo.processLock.Unlock()
+
 		return
 	}
 	mo.processing[order.OrderNum] = true
@@ -107,22 +108,23 @@ func (mo *MockOrders) processOrder(ctx context.Context, order KafkaOrder) {
 	mo.log.Info().Interface("order", order).Msg("Order successfully processed in mock")
 }
 
-func (mo *MockOrders) checkOrderStatus(ctx context.Context, message KafkaOrder) error {
-	mo.log.Info().Interface("OrderNum", message).Msg("Retrieving Order Id (mock)")
+func (mo *MockOrders) checkOrderStatus(ctx context.Context, message orders.KafkaOrder) error {
+	mo.log.Info().Interface("OrderNum", message).Msg("Retrieving Order ID (mock)")
 
 	// Simulate status update
 	time.Sleep(simulateTimeout) // Simulate processing time
 	update := &models.Accrual{
-		OrderId: message.OrderNum,
+		OrderID: message.OrderNum,
 		Status:  string(models.Processed),    // Mock processed status
 		Accrual: float64Ptr(simulateAccrual), // Mock accrual value
 	}
 
-	err := mo.storage.UpdateOrder(ctx, update, message.UserId)
+	err := mo.storage.UpdateOrder(ctx, update, message.UserID)
 	if err != nil {
 		return err
 	}
 
 	mo.log.Info().Str("OrderNum", message.OrderNum).Msg("Order status updated to processed")
+
 	return nil
 }

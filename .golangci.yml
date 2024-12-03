@@ -14,11 +14,19 @@ issues:
     - path: '(.+)(?:brotli|gzip|reporter|wrapper|validator)\.go'
       linters:
         - wrapcheck
+    - path: '(.+)(?:withdrawal|order)\.go'
+      linters:
+        - tagliatelle
     - path: '(.+)_test\.go'
       linters:
         - funlen
         - wrapcheck
+    - path: '(.+)(health_test)\.go'
+      linters:
+        - ireturn
 linters-settings:
+  funlen:
+    lines: 90
   varnamelen:
     min-name-length: 2  # Adjust the minimum length as needed
   goimports:

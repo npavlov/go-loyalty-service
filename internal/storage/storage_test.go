@@ -60,14 +60,14 @@ func TestDBStorage_GetUser(t *testing.T) {
 	username := "testuser"
 	userID, _ := uuid.NewUUID()
 	expectedUser := &models.Login{
-		UserId:         userID,
+		UserID:         userID,
 		HashedPassword: "hashedpassword",
 	}
 
 	mockPool.ExpectQuery(`SELECT id, password FROM users WHERE username = \$1`).
 		WithArgs(username).
 		WillReturnRows(pgxmock.NewRows([]string{"id", "password"}).
-			AddRow(expectedUser.UserId, expectedUser.HashedPassword))
+			AddRow(expectedUser.UserID, expectedUser.HashedPassword))
 
 	user, found := dbStorage.GetUser(ctx, username)
 	require.True(t, found)
@@ -91,9 +91,9 @@ func TestDBStorage_GetOrder(t *testing.T) {
 	userID, _ := uuid.NewUUID()
 	orderID, _ := uuid.NewUUID()
 	expOrd := &models.Order{
-		Id:        orderID,
-		OrderId:   orderNum,
-		UserId:    userID,
+		ID:        orderID,
+		OrderID:   orderNum,
+		UserID:    userID,
 		Status:    "processed",
 		Accrual:   float64Ptr(100),
 		CreatedAt: time.Date(2024, time.December, 3, 9, 9, 40, 0, time.UTC),
@@ -104,7 +104,7 @@ func TestDBStorage_GetOrder(t *testing.T) {
 FROM orders WHERE order_num = \$1`).
 		WithArgs(orderNum).
 		WillReturnRows(pgxmock.NewRows([]string{"id", "order_num", "user_id", "status", "amount", "created_at::text"}).
-			AddRow(expOrd.Id, expOrd.OrderId, expOrd.UserId, expOrd.Status, expOrd.Accrual, createdAt))
+			AddRow(expOrd.ID, expOrd.OrderID, expOrd.UserID, expOrd.Status, expOrd.Accrual, createdAt))
 
 	order, found := dbStorage.GetOrder(ctx, orderNum)
 	require.True(t, found)
@@ -129,17 +129,17 @@ func TestDBStorage_GetOrders(t *testing.T) {
 	orderID2, _ := uuid.NewUUID()
 	expectedOrders := []models.Order{
 		{
-			Id:        orderID1,
-			OrderId:   "order1",
-			UserId:    userID,
+			ID:        orderID1,
+			OrderID:   "order1",
+			UserID:    userID,
 			Status:    "processed",
 			Accrual:   float64Ptr(100.0),
 			CreatedAt: time.Date(2024, time.December, 3, 9, 9, 40, 0, time.UTC),
 		},
 		{
-			Id:        orderID2,
-			OrderId:   "order2",
-			UserId:    userID,
+			ID:        orderID2,
+			OrderID:   "order2",
+			UserID:    userID,
 			Status:    "pending",
 			Accrual:   float64Ptr(50.0),
 			CreatedAt: time.Date(2024, time.December, 2, 9, 9, 40, 0, time.UTC),
@@ -148,7 +148,7 @@ func TestDBStorage_GetOrders(t *testing.T) {
 
 	mockRows := pgxmock.NewRows([]string{"id", "order_num", "user_id", "status", "amount", "created_at::text"})
 	for _, or := range expectedOrders {
-		mockRows.AddRow(or.Id, or.OrderId, or.UserId, or.Status, or.Accrual, or.CreatedAt.Format(time.DateTime))
+		mockRows.AddRow(or.ID, or.OrderID, or.UserID, or.Status, or.Accrual, or.CreatedAt.Format(time.DateTime))
 	}
 
 	mockPool.ExpectQuery(`SELECT id, order_num, user_id, status, amount, created_at::text 
@@ -195,7 +195,7 @@ func TestUpdateOrder(t *testing.T) {
 	dbStorage := storage.NewDBStorage(mockPool, &log)
 
 	update := &models.Accrual{
-		OrderId: "order123",
+		OrderID: "order123",
 		Status:  string(models.Processed),
 		Accrual: float64Ptr(50.0),
 	}
@@ -209,12 +209,12 @@ func TestUpdateOrder(t *testing.T) {
 
 	// Simulate fetching current order status
 	mockPool.ExpectQuery(`SELECT status FROM orders`).
-		WithArgs(update.OrderId, userID).
+		WithArgs(update.OrderID, userID).
 		WillReturnRows(pgxmock.NewRows([]string{"status"}).AddRow(models.NewStatus))
 
 	// Simulate updating order status and amount
 	mockPool.ExpectExec(`UPDATE orders`).
-		WithArgs(update.Status, *update.Accrual, update.OrderId).
+		WithArgs(update.Status, *update.Accrual, update.OrderID).
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	// Simulate updating user balance
@@ -302,22 +302,22 @@ func TestGetWithdrawals(t *testing.T) {
 
 	expecWithdraw := []models.Withdrawal{
 		{
-			UserId:    "",
-			OrderId:   "order1",
+			UserID:    "",
+			OrderID:   "order1",
 			Sum:       float64Ptr(50.0),
 			CreatedAt: time.Date(2024, time.December, 2, 9, 9, 40, 0, time.UTC),
 		},
 		{
-			UserId:    "",
-			OrderId:   "order2",
+			UserID:    "",
+			OrderID:   "order2",
 			Sum:       float64Ptr(30.0),
 			CreatedAt: time.Date(2024, time.December, 3, 9, 9, 40, 0, time.UTC),
 		},
 	}
 
 	rows := pgxmock.NewRows([]string{"order_num", "sum", "updated_at"}).
-		AddRow(expecWithdraw[0].OrderId, expecWithdraw[0].Sum, expecWithdraw[0].CreatedAt.Format(time.DateTime)).
-		AddRow(expecWithdraw[1].OrderId, expecWithdraw[1].Sum, expecWithdraw[1].CreatedAt.Format(time.DateTime))
+		AddRow(expecWithdraw[0].OrderID, expecWithdraw[0].Sum, expecWithdraw[0].CreatedAt.Format(time.DateTime)).
+		AddRow(expecWithdraw[1].OrderID, expecWithdraw[1].Sum, expecWithdraw[1].CreatedAt.Format(time.DateTime))
 
 	mockPool.ExpectQuery(`SELECT order_num, sum, updated_at::text FROM withdrawals WHERE`).
 		WithArgs(userID).

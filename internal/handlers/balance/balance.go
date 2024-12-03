@@ -62,6 +62,7 @@ func (mh *HandlerBalance) MakeWithdrawal(response http.ResponseWriter, req *http
 	var mkWithdrawal models.MakeWithdrawal
 	if err := json.NewDecoder(req.Body).Decode(&mkWithdrawal); err != nil {
 		http.Error(response, "Invalid request", http.StatusBadRequest)
+
 		return
 	}
 
@@ -143,6 +144,7 @@ func (mh *HandlerBalance) GetWithdrawals(response http.ResponseWriter, req *http
 		mh.logger.Error().Err(err).Msg("failed to encode response")
 
 		http.Error(response, "Internal Server Error", http.StatusInternalServerError)
+
 		return
 	}
 

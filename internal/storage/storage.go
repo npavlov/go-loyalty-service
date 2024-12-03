@@ -15,6 +15,11 @@ import (
 	"github.com/npavlov/go-loyalty-service/internal/utils"
 )
 
+var (
+	ErrInsufficientBalance = errors.New("Insufficient balance")
+	ErrNoRowsUpdated       = errors.New("No rows updated")
+)
+
 type DBStorage struct {
 	log   *zerolog.Logger
 	dbCon dbmanager.PgxPool
@@ -68,7 +73,7 @@ func (storage *DBStorage) GetUser(ctx context.Context, username string) (*models
 	}
 
 	// Execute the query and scan the results
-	err = storage.dbCon.QueryRow(ctx, sql, args...).Scan(&login.UserId, &login.HashedPassword)
+	err = storage.dbCon.QueryRow(ctx, sql, args...).Scan(&login.UserID, &login.HashedPassword)
 	if err != nil {
 		if utils.CheckNoRows(err) {
 			return nil, false
@@ -100,7 +105,7 @@ func (storage *DBStorage) GetOrder(ctx context.Context, orderNum string) (*model
 
 	// Execute the query and scan the results
 	err = storage.dbCon.QueryRow(ctx, sql, args...).
-		Scan(&order.Id, &order.OrderId, &order.UserId, &order.Status, &order.Accrual, &createdAt)
+		Scan(&order.ID, &order.OrderID, &order.UserID, &order.Status, &order.Accrual, &createdAt)
 	if err != nil {
 		if utils.CheckNoRows(err) {
 			return nil, false
@@ -149,7 +154,7 @@ func (storage *DBStorage) GetOrders(ctx context.Context, userID string) ([]model
 		var order models.Order
 		var createdAt string
 
-		err := rows.Scan(&order.Id, &order.OrderId, &order.UserId, &order.Status, &order.Accrual, &createdAt)
+		err := rows.Scan(&order.ID, &order.OrderID, &order.UserID, &order.Status, &order.Accrual, &createdAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
@@ -176,10 +181,10 @@ func (storage *DBStorage) GetOrders(ctx context.Context, userID string) ([]model
 	return orders, nil
 }
 
-func (storage *DBStorage) CreateOrder(ctx context.Context, orderNum string, userId string) (string, error) {
+func (storage *DBStorage) CreateOrder(ctx context.Context, orderNum string, userID string) (string, error) {
 	sql, args, err := squirrel.Insert("orders").
 		Columns("user_id", "order_num").
-		Values(userId, orderNum).
+		Values(userID, orderNum).
 		Suffix("RETURNING id").
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
@@ -197,6 +202,7 @@ func (storage *DBStorage) CreateOrder(ctx context.Context, orderNum string, user
 	return orderID, nil
 }
 
+//nolint:cyclop
 func (storage *DBStorage) UpdateOrder(ctx context.Context, update *models.Accrual, userID string) error {
 	err := WithTx(ctx, storage.dbCon, func(ctx context.Context, tx pgx.Tx) error {
 		key1, key2 := KeyNameAsHash64("update_order")
@@ -213,7 +219,7 @@ func (storage *DBStorage) UpdateOrder(ctx context.Context, update *models.Accrua
 		sql, args, err := squirrel.
 			Select("status").
 			From("orders").
-			Where(squirrel.Eq{"order_num": update.OrderId}).
+			Where(squirrel.Eq{"order_num": update.OrderID}).
 			Where(squirrel.Eq{"user_id": userID}).
 			PlaceholderFormat(squirrel.Dollar).
 			ToSql()
@@ -237,7 +243,7 @@ func (storage *DBStorage) UpdateOrder(ctx context.Context, update *models.Accrua
 		// Initialize an update builder with squirrel
 		query := squirrel.Update("orders").
 			Set("status", update.Status).
-			Where(squirrel.Eq{"order_num": update.OrderId})
+			Where(squirrel.Eq{"order_num": update.OrderID})
 
 		// Conditionally add the amount field if it is provided
 		if update.Accrual != nil {
@@ -258,7 +264,7 @@ func (storage *DBStorage) UpdateOrder(ctx context.Context, update *models.Accrua
 
 		// Check if any rows were affected
 		if commandTag.RowsAffected() == 0 {
-			return fmt.Errorf("no rows updated for order number: %s", update.OrderId)
+			return ErrNoRowsUpdated
 		}
 
 		if update.Accrual != nil {
@@ -278,6 +284,7 @@ func (storage *DBStorage) UpdateOrder(ctx context.Context, update *models.Accrua
 				return fmt.Errorf("failed to update user balance: %w", err)
 			}
 		}
+
 		return nil
 	})
 
@@ -307,12 +314,13 @@ func (storage *DBStorage) GetBalance(ctx context.Context, userID string) (*model
 	return &balance, nil
 }
 
-func (storage *DBStorage) MakeWithdrawn(ctx context.Context, userId string, orderNum string, sum float64) error {
+func (storage *DBStorage) MakeWithdrawn(ctx context.Context, userID string, orderNum string, sum float64) error {
 	err := WithTx(ctx, storage.dbCon, func(ctx context.Context, tx pgx.Tx) error {
 		key1, key2 := KeyNameAsHash64("make_withdrawn")
 		err := AcquireBlockingLock(ctx, tx, key1, key2, storage.log)
 		if err != nil {
 			storage.log.Error().Err(err).Msg("failed to acquire lock")
+
 			return errors.Wrap(err, "failed to acquire lock")
 		}
 
@@ -321,7 +329,7 @@ func (storage *DBStorage) MakeWithdrawn(ctx context.Context, userId string, orde
 		sql, args, err := squirrel.
 			Select("balance").
 			From("users").
-			Where(squirrel.Eq{"id": userId}).
+			Where(squirrel.Eq{"id": userID}).
 			PlaceholderFormat(squirrel.Dollar).
 			ToSql()
 		if err != nil {
@@ -336,14 +344,14 @@ func (storage *DBStorage) MakeWithdrawn(ctx context.Context, userId string, orde
 		if currentBalance < sum {
 			storage.log.Error().Msgf("insufficient balance: available %.2f, required %.2f", currentBalance, sum)
 
-			return fmt.Errorf("insufficient balance: available %.2f, required %.2f", currentBalance, sum)
+			return ErrInsufficientBalance
 		}
 
 		// Insert a new withdrawal record
 		withdrawalSQL, withdrawalArgs, err := squirrel.
 			Insert("withdrawals").
 			Columns("user_id", "sum", "order_num").
-			Values(userId, sum, orderNum).
+			Values(userID, sum, orderNum).
 			PlaceholderFormat(squirrel.Dollar).
 			ToSql()
 		if err != nil {
@@ -360,7 +368,7 @@ func (storage *DBStorage) MakeWithdrawn(ctx context.Context, userId string, orde
 			Update("users").
 			Set("balance", squirrel.Expr("balance - ?", sum)).
 			Set("withdrawn", squirrel.Expr("withdrawn + ?", sum)).
-			Where(squirrel.Eq{"id": userId}).
+			Where(squirrel.Eq{"id": userID}).
 			PlaceholderFormat(squirrel.Dollar).
 			ToSql()
 		if err != nil {
@@ -378,11 +386,11 @@ func (storage *DBStorage) MakeWithdrawn(ctx context.Context, userId string, orde
 	return err
 }
 
-func (storage *DBStorage) GetWithdrawals(ctx context.Context, userId string) ([]models.Withdrawal, error) {
+func (storage *DBStorage) GetWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
 	sql, args, err := squirrel.
 		Select("order_num", "sum", "updated_at::text").
 		From("withdrawals").
-		Where(squirrel.Eq{"user_id": userId}).
+		Where(squirrel.Eq{"user_id": userID}).
 		OrderBy("created_at DESC").
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
@@ -402,7 +410,7 @@ func (storage *DBStorage) GetWithdrawals(ctx context.Context, userId string) ([]
 		var wd models.Withdrawal
 
 		var createdAt string
-		err := rows.Scan(&wd.OrderId, &wd.Sum, &createdAt)
+		err := rows.Scan(&wd.OrderID, &wd.Sum, &createdAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}

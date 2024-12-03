@@ -23,6 +23,7 @@ func generateJWT(userID string, expiration time.Duration) string {
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedToken, _ := token.SignedString([]byte(jwtSecret))
+
 	return signedToken
 }
 
@@ -39,7 +40,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	// Handler to test
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("userID")
+		user := r.Context().Value(middlewares.UserIDKey)
 		assert.Equal(t, userID, user, "Expected userID in context")
 		w.WriteHeader(http.StatusOK)
 	})

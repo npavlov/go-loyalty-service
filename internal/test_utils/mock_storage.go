@@ -46,7 +46,7 @@ func (m *MockStorage) AddUser(_ context.Context, username string, passwordHash s
 
 	userID, _ := uuid.NewUUID()
 	m.Users[username] = &models.Login{
-		UserId:         userID,
+		UserID:         userID,
 		HashedPassword: passwordHash,
 	}
 
@@ -83,7 +83,7 @@ func (m *MockStorage) GetOrders(_ context.Context, userID string) ([]models.Orde
 
 	var orders []models.Order
 	for _, order := range m.orders {
-		if order.UserId.String() == userID {
+		if order.UserID.String() == userID {
 			orders = append(orders, *order)
 		}
 	}
@@ -91,7 +91,7 @@ func (m *MockStorage) GetOrders(_ context.Context, userID string) ([]models.Orde
 	return orders, nil
 }
 
-func (m *MockStorage) CreateOrder(_ context.Context, orderNum string, userId string) (string, error) {
+func (m *MockStorage) CreateOrder(_ context.Context, orderNum string, userID string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -99,16 +99,16 @@ func (m *MockStorage) CreateOrder(_ context.Context, orderNum string, userId str
 		return "", errors.New("order already exists")
 	}
 
-	parsedUserID, err := uuid.Parse(userId)
+	parsedUserID, err := uuid.Parse(userID)
 	if err != nil {
 		return "", errors.Wrap(err, "parsing user id")
 	}
 
 	orderID, _ := uuid.NewUUID()
 	m.orders[orderNum] = &models.Order{
-		Id:        orderID,
-		OrderId:   orderNum,
-		UserId:    parsedUserID,
+		ID:        orderID,
+		OrderID:   orderNum,
+		UserID:    parsedUserID,
 		Status:    models.NewStatus,
 		Accrual:   float64Ptr(0),
 		CreatedAt: time.Now(),
@@ -121,8 +121,8 @@ func (m *MockStorage) UpdateOrder(_ context.Context, update *models.Accrual, use
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	order, exists := m.orders[update.OrderId]
-	if !exists || order.UserId.String() != userID {
+	order, exists := m.orders[update.OrderID]
+	if !exists || order.UserID.String() != userID {
 		return errors.New("order not found or unauthorized access")
 	}
 
@@ -130,7 +130,7 @@ func (m *MockStorage) UpdateOrder(_ context.Context, update *models.Accrual, use
 	if update.Accrual != nil {
 		order.Accrual = update.Accrual
 	}
-	m.orders[update.OrderId] = order
+	m.orders[update.OrderID] = order
 
 	return nil
 }
@@ -150,11 +150,11 @@ func (m *MockStorage) GetBalance(_ context.Context, userID string) (*models.Bala
 	return balance, nil
 }
 
-func (m *MockStorage) MakeWithdrawn(_ context.Context, userId string, orderNum string, sum float64) error {
+func (m *MockStorage) MakeWithdrawn(_ context.Context, userID string, orderNum string, sum float64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	balance, exists := m.Balances[userId]
+	balance, exists := m.Balances[userID]
 	if !exists || balance.Balance < sum {
 		return errors.New("insufficient balance")
 	}
@@ -164,22 +164,22 @@ func (m *MockStorage) MakeWithdrawn(_ context.Context, userId string, orderNum s
 	balance.Withdrawn += sum
 
 	m.Withdrawals[orderNum] = &models.Withdrawal{
-		OrderId:   orderNum,
+		OrderID:   orderNum,
 		Sum:       float64Ptr(sum),
 		CreatedAt: time.Now(),
-		UserId:    userId,
+		UserID:    userID,
 	}
 
 	return nil
 }
 
-func (m *MockStorage) GetWithdrawals(_ context.Context, userId string) ([]models.Withdrawal, error) {
+func (m *MockStorage) GetWithdrawals(_ context.Context, userID string) ([]models.Withdrawal, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	var withdrawals []models.Withdrawal
 	for _, wd := range m.Withdrawals {
-		if wd.UserId == userId {
+		if wd.UserID == userID {
 			withdrawals = append(withdrawals, *wd)
 		}
 	}

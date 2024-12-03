@@ -32,6 +32,7 @@ var (
 	ErrJWTisNotPorvided     = errors.New("JWT token is not provided")
 )
 
+//nolint:funlen
 func main() {
 	log := logger.NewLogger().SetLogLevel(zerolog.DebugLevel).Get()
 

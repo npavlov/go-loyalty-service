@@ -24,8 +24,9 @@ func setupHandlerBalance() (*balance.HandlerBalance, *testutils.MockStorage, con
 	logger := zerolog.New(nil)
 	mockStorage := testutils.NewMockStorage()
 	handler := balance.NewBalanceHandler(mockStorage, &logger)
-	//nolint:staticcheck
+
 	ctx := context.WithValue(context.Background(), middlewares.UserIDKey, mockedUserID)
+
 	return handler, mockStorage, ctx
 }
 
@@ -72,7 +73,8 @@ func TestHandlerBalance_MakeWithdrawal(t *testing.T) {
 		Order: testutils.GenerateLuhnNumber(16),
 		Sum:   50.0,
 	}
-	body, _ := json.Marshal(withdrawal)
+	body, err := json.Marshal(withdrawal)
+	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/api/user/withdraw", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(ctx)
@@ -91,7 +93,7 @@ func TestHandlerBalance_MakeWithdrawal(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 
 	var response models.Balance
-	err := json.Unmarshal(rec.Body.Bytes(), &response)
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.InDelta(t, 50.0, response.Balance, 0.001)
 	assert.InDelta(t, 70.0, response.Withdrawn, 0.001)
@@ -140,7 +142,7 @@ func TestHandlerBalance_GetWithdrawals(t *testing.T) {
 	// Mock the storage behavior
 	withdrawalOrderNum := testutils.GenerateLuhnNumber(16)
 	withdrawals := map[string]*models.Withdrawal{
-		withdrawalOrderNum: {OrderId: withdrawalOrderNum, Sum: float64Ptr(50.0), UserId: mockedUserID},
+		withdrawalOrderNum: {OrderID: withdrawalOrderNum, Sum: float64Ptr(50.0), UserID: mockedUserID},
 	}
 	mockStorage.Withdrawals = withdrawals
 
@@ -159,7 +161,7 @@ func TestHandlerBalance_GetWithdrawals(t *testing.T) {
 	err := json.Unmarshal(rec.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Len(t, response, 1)
-	assert.Equal(t, withdrawalOrderNum, response[0].OrderId)
+	assert.Equal(t, withdrawalOrderNum, response[0].OrderID)
 }
 
 func TestHandlerBalance_GetWithdrawals_NoContent(t *testing.T) {

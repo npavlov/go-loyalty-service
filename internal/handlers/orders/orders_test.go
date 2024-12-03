@@ -39,7 +39,6 @@ func TestHandlerOrders_GetOrders(t *testing.T) {
 
 	// Create a request with the userID in context
 	req := httptest.NewRequest(http.MethodGet, "/orders", nil)
-	//nolint:staticcheck
 	ctx := context.WithValue(req.Context(), middlewares.UserIDKey, userID)
 	req = req.WithContext(ctx)
 	resp := httptest.NewRecorder()
@@ -54,7 +53,7 @@ func TestHandlerOrders_GetOrders(t *testing.T) {
 	err = json.Unmarshal(resp.Body.Bytes(), &orders)
 	require.NoError(t, err)
 	assert.Len(t, orders, 1)
-	assert.Equal(t, orderNum, orders[0].OrderId)
+	assert.Equal(t, orderNum, orders[0].OrderID)
 	assert.Equal(t, models.NewStatus, orders[0].Status)
 }
 
@@ -73,7 +72,6 @@ func TestHandlerOrders_Create(t *testing.T) {
 
 		orderID := testutils.GenerateLuhnNumber(16)
 		req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader([]byte(orderID)))
-		//nolint:staticcheck
 		ctx := context.WithValue(req.Context(), middlewares.UserIDKey, userID)
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
@@ -84,7 +82,7 @@ func TestHandlerOrders_Create(t *testing.T) {
 
 		storedOrder, _ := mockStorage.GetOrder(context.Background(), orderID)
 		assert.NotNil(t, storedOrder)
-		assert.Equal(t, orderID, storedOrder.OrderId)
+		assert.Equal(t, orderID, storedOrder.OrderID)
 	})
 
 	t.Run("Invalid order number", func(t *testing.T) {
@@ -92,7 +90,6 @@ func TestHandlerOrders_Create(t *testing.T) {
 
 		invalidOrderID := "12345" // Luhn invalid
 		req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader([]byte(invalidOrderID)))
-		//nolint:staticcheck
 		ctx := context.WithValue(req.Context(), middlewares.UserIDKey, userID)
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()

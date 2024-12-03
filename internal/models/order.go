@@ -17,9 +17,9 @@ const (
 )
 
 type Order struct {
-	Id        uuid.UUID `db:"id"         json:"-"`
-	OrderId   string    `db:"order_num"  json:"number"`
-	UserId    uuid.UUID `db:"user_id"    json:"-"`
+	ID        uuid.UUID `db:"id"         json:"-"`
+	OrderID   string    `db:"order_num"  json:"number"`
+	UserID    uuid.UUID `db:"user_id"    json:"-"`
 	Status    Status    `db:"status"     json:"status"`
 	Accrual   *float64  `db:"amount"     json:"accrual,omitempty"`
 	CreatedAt time.Time `db:"updated_at" json:"uploaded_at"`
@@ -29,6 +29,8 @@ type Order struct {
 func (o Order) MarshalJSON() ([]byte, error) {
 	// Create an alias to avoid infinite recursion
 	type Alias Order
+
+	//nolint:wrapcheck
 	return json.Marshal(&struct {
 		UploadedAt string `json:"uploaded_at"`
 		*Alias

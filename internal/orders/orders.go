@@ -16,7 +16,7 @@ import (
 
 type KafkaOrder struct {
 	OrderNum string `json:"orderNum"`
-	UserId   string `json:"UserId"`
+	UserID   string `json:"userId"`
 }
 
 type Orders struct {
@@ -28,6 +28,7 @@ type Orders struct {
 }
 
 func NewOrders(writer *kafka.Writer, reader *kafka.Reader, log *zerolog.Logger) *Orders {
+	//nolint:exhaustruct
 	return &Orders{
 		log:    log,
 		writer: writer,
@@ -37,18 +38,20 @@ func NewOrders(writer *kafka.Writer, reader *kafka.Reader, log *zerolog.Logger) 
 
 func (or *Orders) WithSender(cfg *config.Config) *Orders {
 	or.sender = NewSender(cfg, or.log)
+
 	return or
 }
 
 func (or *Orders) WithStorage(storage *storage.DBStorage) *Orders {
 	or.storage = storage
+
 	return or
 }
 
-func (or *Orders) AddOrder(ctx context.Context, orderNum string, userId string) error {
+func (or *Orders) AddOrder(ctx context.Context, orderNum string, userID string) error {
 	data := KafkaOrder{
 		OrderNum: orderNum,
-		UserId:   userId,
+		UserID:   userID,
 	}
 
 	jsonData, err := json.Marshal(data)
@@ -58,6 +61,7 @@ func (or *Orders) AddOrder(ctx context.Context, orderNum string, userId string) 
 		return errors.Wrap(err, "Error marshalling data for Kafka")
 	}
 
+	//nolint:exhaustruct
 	err = or.writer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(orderNum),
 		Value: jsonData,
@@ -69,6 +73,7 @@ func (or *Orders) AddOrder(ctx context.Context, orderNum string, userId string) 
 	}
 
 	or.log.Info().Interface("order", data).Msg("NewOrder sent to Kafka")
+
 	return nil
 }
 
@@ -79,6 +84,7 @@ func (or *Orders) ProcessOrders(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			log.Println("Stopping message processing...")
+
 			return
 		default:
 			msg, err := or.reader.FetchMessage(ctx)
@@ -88,6 +94,7 @@ func (or *Orders) ProcessOrders(ctx context.Context) {
 				continue
 			}
 
+			//nolint:exhaustruct
 			data := KafkaOrder{}
 			err = json.Unmarshal(msg.Value, &data)
 			if err != nil {
@@ -120,14 +127,14 @@ func (or *Orders) ProcessOrders(ctx context.Context) {
 
 // checkOrderStatus обновляет статус заказа, поддерживает ретраи через Kafka.
 func (or *Orders) checkOrderStatus(ctx context.Context, message KafkaOrder) error {
-	or.log.Info().Interface("OrderNum", message).Msg("Retrieving Order Id")
+	or.log.Info().Interface("OrderNum", message).Msg("Retrieving Order ID")
 
 	result, err := or.sender.SendPostRequest(ctx, message.OrderNum)
 	if err != nil {
 		return err
 	}
 
-	err = or.storage.UpdateOrder(ctx, result, message.UserId)
+	err = or.storage.UpdateOrder(ctx, result, message.UserID)
 	if err != nil {
 		return errors.Wrap(err, "error updating order")
 	}

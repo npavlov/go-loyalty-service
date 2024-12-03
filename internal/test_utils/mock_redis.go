@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var ErrKeyNotFound = errors.New("key not found")
+
 // MockRedis is a mock implementation of RedisInterface for testing.
 type MockRedis struct {
 	data  map[string]mockValue
@@ -38,7 +40,7 @@ func (m *MockRedis) Get(_ context.Context, key string) (string, error) {
 
 	value, exists := m.data[key]
 	if !exists || (value.expiration.Before(time.Now()) && !value.expiration.IsZero()) {
-		return "", errors.New("key not found")
+		return "", ErrKeyNotFound
 	}
 
 	return value.value, nil

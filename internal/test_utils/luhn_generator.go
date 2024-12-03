@@ -1,10 +1,10 @@
 package testutils
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strconv"
-	"time"
 )
 
 const (
@@ -23,16 +23,16 @@ func GenerateLuhnNumber(length int) string {
 	// Generate random base number
 	base := make([]int, length-1)
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	for i := range base {
-		base[i] = rng.Intn(checkDigitBase)
+		randVal, _ := rand.Int(rand.Reader, big.NewInt(checkDigitBase))
+		base[i] = int(randVal.Int64())
 	}
 
 	// Calculate the check digit
 	checkDigit := calculateLuhnChecksum(base)
 
 	// Combine base and check digit
+	//nolint:gocritic,makezero
 	luhnNumber := append(base, checkDigit)
 	result := ""
 	for _, digit := range luhnNumber {

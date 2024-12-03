@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -30,6 +29,7 @@ func NewOrdersHandler(storage storage.Storage, orderProc orders.QueueProcessor, 
 }
 
 func (mh *HandlerOrders) GetOrders(response http.ResponseWriter, req *http.Request) {
+	//nolint:forcetypeassert
 	currentUser := req.Context().Value(middlewares.UserIDKey).(string)
 
 	dbOrders, err := mh.storage.GetOrders(req.Context(), currentUser)
@@ -87,18 +87,19 @@ func (mh *HandlerOrders) Create(response http.ResponseWriter, req *http.Request)
 		return
 	}
 
+	//nolint:forcetypeassert
 	currentUser := req.Context().Value(middlewares.UserIDKey).(string)
 
 	order, found := mh.storage.GetOrder(req.Context(), orderNum)
 
-	if found && order.UserId.String() == currentUser {
+	if found && order.UserID.String() == currentUser {
 		mh.logger.Info().Str("orderNum", orderNum).Msg("Order is already created by this user")
 		response.WriteHeader(http.StatusOK)
 
 		return
 	}
 
-	if found && order.UserId.String() != currentUser {
+	if found && order.UserID.String() != currentUser {
 		mh.logger.Info().Str("orderNum", orderNum).Msg("Order is already created by other user")
 		response.WriteHeader(http.StatusConflict)
 
@@ -112,8 +113,8 @@ func (mh *HandlerOrders) Create(response http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	mh.logger.Info().Str("orderNum", orderNum).Str("Id", newOrderID).Msg("OrderId created")
-	err = mh.orderProcessor.AddOrder(context.Background(), orderNum, currentUser)
+	mh.logger.Info().Str("orderNum", orderNum).Str("ID", newOrderID).Msg("OrderID created")
+	err = mh.orderProcessor.AddOrder(req.Context(), orderNum, currentUser)
 	if err != nil {
 		mh.logger.Err(err).Msg("Error adding order")
 	}

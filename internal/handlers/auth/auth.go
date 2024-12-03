@@ -157,7 +157,7 @@ func (ah *HandlerAuth) LoginHandler(writer http.ResponseWriter, request *http.Re
 	}
 
 	// Generate a JWT token
-	token, err := ah.generateJWT(login.UserId.String(), ah.cfg.JwtSecret)
+	token, err := ah.generateJWT(login.UserID.String(), ah.cfg.JwtSecret)
 	if err != nil {
 		log.Err(err).Msg("Error generating token")
 		http.Error(writer, "Error generating token", http.StatusInternalServerError)
@@ -165,7 +165,7 @@ func (ah *HandlerAuth) LoginHandler(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	err = ah.storeInRedis(request.Context(), login.UserId.String(), token)
+	err = ah.storeInRedis(request.Context(), login.UserID.String(), token)
 	if err != nil {
 		log.Err(err).Msg("Error storing token in Redis")
 		http.Error(writer, "Error storing token in Redis", http.StatusInternalServerError)
@@ -182,7 +182,12 @@ func (ah *HandlerAuth) generateJWT(userID string, jwtSecret string) (string, err
 		"exp":     time.Now().Add(tokenExpiration).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(jwtSecret))
+	result, err := token.SignedString([]byte(jwtSecret))
+	if err != nil {
+		return "", errors.Wrap(err, "Error generating JWT")
+	}
+
+	return result, nil
 }
 
 func (ah *HandlerAuth) storeInRedis(ctx context.Context, userID string, token string) error {
@@ -193,6 +198,7 @@ func (ah *HandlerAuth) storeInRedis(ctx context.Context, userID string, token st
 
 func (ah *HandlerAuth) returnToken(writer http.ResponseWriter, token string) {
 	// Set the token in a secure, HTTP-only cookie
+	//nolint:exhaustruct
 	http.SetCookie(writer, &http.Cookie{
 		Name:     "Authorization",
 		Value:    token,
