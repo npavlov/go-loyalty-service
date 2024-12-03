@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/npavlov/go-loyalty-service/internal/redis"
 	"github.com/rs/zerolog"
 
 	"github.com/npavlov/go-loyalty-service/internal/config"
@@ -14,6 +13,7 @@ import (
 	health "github.com/npavlov/go-loyalty-service/internal/handlers/health"
 	orders "github.com/npavlov/go-loyalty-service/internal/handlers/orders"
 	"github.com/npavlov/go-loyalty-service/internal/middlewares"
+	"github.com/npavlov/go-loyalty-service/internal/redis"
 )
 
 const (

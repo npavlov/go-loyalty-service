@@ -38,20 +38,20 @@ func (storage *DBStorage) AddUser(ctx context.Context, username string, password
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "adding user")
 	}
 
 	// Execute the query
 	var userID string // Use string for UUIDs
 	err = storage.dbCon.QueryRow(ctx, sql, args...).Scan(&userID)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "adding user")
 	}
 
 	return userID, nil
 }
 
-func (storage *DBStorage) GetUser(ctx context.Context, username string) (*models.Login, error) {
+func (storage *DBStorage) GetUser(ctx context.Context, username string) (*models.Login, bool) {
 	var login models.Login
 
 	// Query the database for the user's hashed password and ID
@@ -62,23 +62,25 @@ func (storage *DBStorage) GetUser(ctx context.Context, username string) (*models
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
 	if err != nil {
-		return nil, err
+		storage.log.Error().Err(err).Msg("getting user")
+
+		return nil, false
 	}
 
 	// Execute the query and scan the results
 	err = storage.dbCon.QueryRow(ctx, sql, args...).Scan(&login.UserId, &login.HashedPassword)
 	if err != nil {
 		if utils.CheckNoRows(err) {
-			return nil, nil
+			return nil, false
 		}
 
-		return nil, err
+		return nil, false
 	}
 
-	return &login, nil
+	return &login, true
 }
 
-func (storage *DBStorage) GetOrder(ctx context.Context, orderNum string) (*models.Order, error) {
+func (storage *DBStorage) GetOrder(ctx context.Context, orderNum string) (*models.Order, bool) {
 	var order models.Order
 
 	// Query the database for the user's hashed password and ID
@@ -89,7 +91,9 @@ func (storage *DBStorage) GetOrder(ctx context.Context, orderNum string) (*model
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
 	if err != nil {
-		return nil, err
+		storage.log.Error().Err(err).Msg("getting order")
+
+		return nil, false
 	}
 
 	var createdAt string
@@ -99,19 +103,23 @@ func (storage *DBStorage) GetOrder(ctx context.Context, orderNum string) (*model
 		Scan(&order.Id, &order.OrderId, &order.UserId, &order.Status, &order.Accrual, &createdAt)
 	if err != nil {
 		if utils.CheckNoRows(err) {
-			return nil, nil
+			return nil, false
 		}
 
-		return nil, err
+		storage.log.Error().Err(err).Msg("getting order")
+
+		return nil, false
 	}
 
 	// Parse created_at
 	order.CreatedAt, err = time.Parse(time.DateTime, createdAt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse created_at: %w", err)
+		storage.log.Error().Err(err).Msg("getting order")
+
+		return nil, false
 	}
 
-	return &order, nil
+	return &order, true
 }
 
 func (storage *DBStorage) GetOrders(ctx context.Context, userID string) ([]models.Order, error) {
@@ -176,20 +184,20 @@ func (storage *DBStorage) CreateOrder(ctx context.Context, orderNum string, user
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to build query")
 	}
 
 	// Prepare to capture the returned order ID
 	var orderID string
 	err = storage.dbCon.QueryRow(ctx, sql, args...).Scan(&orderID)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "failed to fetch orderNum %s", orderNum)
 	}
 
 	return orderID, nil
 }
 
-func (storage *DBStorage) UpdateOrder(ctx context.Context, update *models.Accrual, userId string) error {
+func (storage *DBStorage) UpdateOrder(ctx context.Context, update *models.Accrual, userID string) error {
 	err := WithTx(ctx, storage.dbCon, func(ctx context.Context, tx pgx.Tx) error {
 		key1, key2 := KeyNameAsHash64("update_order")
 		err := AcquireBlockingLock(ctx, tx, key1, key2, storage.log)
@@ -206,11 +214,11 @@ func (storage *DBStorage) UpdateOrder(ctx context.Context, update *models.Accrua
 			Select("status").
 			From("orders").
 			Where(squirrel.Eq{"order_num": update.OrderId}).
-			Where(squirrel.Eq{"user_id": userId}).
+			Where(squirrel.Eq{"user_id": userID}).
 			PlaceholderFormat(squirrel.Dollar).
 			ToSql()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to build query")
 		}
 
 		// Execute the query and scan the results
@@ -257,7 +265,7 @@ func (storage *DBStorage) UpdateOrder(ctx context.Context, update *models.Accrua
 			// Increment the user's balance
 			balanceQuery := squirrel.Update("users").
 				Set("balance", squirrel.Expr("balance + ?", *update.Accrual)).
-				Where(squirrel.Eq{"id": userId}).
+				Where(squirrel.Eq{"id": userID}).
 				PlaceholderFormat(squirrel.Dollar)
 
 			balanceSQL, balanceArgs, err := balanceQuery.ToSql()
@@ -287,13 +295,13 @@ func (storage *DBStorage) GetBalance(ctx context.Context, userID string) (*model
 		PlaceholderFormat(squirrel.Dollar).
 		ToSql()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to build query")
 	}
 
 	// Execute the query and scan the results
 	err = storage.dbCon.QueryRow(ctx, sql, args...).Scan(&balance.Balance, &balance.Withdrawn)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to fetch balance")
 	}
 
 	return &balance, nil
@@ -356,58 +364,18 @@ func (storage *DBStorage) MakeWithdrawn(ctx context.Context, userId string, orde
 			PlaceholderFormat(squirrel.Dollar).
 			ToSql()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to build update query")
 		}
 
 		_, err = tx.Exec(ctx, updateSQL, updateArgs...)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to update withdrawal record")
 		}
 
 		return nil
 	})
 
 	return err
-}
-
-func (storage *DBStorage) GetWithdrawal(ctx context.Context, orderNum string) (*models.Withdrawal, error) {
-	sql, args, err := squirrel.
-		Select("order_num", "sum", "updated_at::text").
-		From("withdrawals").
-		Where(squirrel.Eq{"order_num": orderNum}).
-		OrderBy("created_at DESC").
-		PlaceholderFormat(squirrel.Dollar).
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build query: %w", err)
-	}
-
-	rows, err := storage.dbCon.Query(ctx, sql, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute query: %w", err)
-	}
-	defer rows.Close()
-
-	var withdrawal models.Withdrawal
-
-	var createdAt string
-	err = storage.dbCon.QueryRow(ctx, sql, args...).
-		Scan(&withdrawal.OrderId, &withdrawal.Sum, &createdAt)
-	if err != nil {
-		if utils.CheckNoRows(err) {
-			return nil, nil
-		}
-
-		return nil, fmt.Errorf("failed to scan row: %w", err)
-	}
-
-	// Parse created_at
-	withdrawal.CreatedAt, err = time.Parse(time.DateTime, createdAt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse created_at: %w", err)
-	}
-
-	return &withdrawal, nil
 }
 
 func (storage *DBStorage) GetWithdrawals(ctx context.Context, userId string) ([]models.Withdrawal, error) {

@@ -8,28 +8,31 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/npavlov/go-loyalty-service/internal/middlewares"
 	testutils "github.com/npavlov/go-loyalty-service/internal/test_utils"
-	"github.com/stretchr/testify/assert"
 )
 
 const jwtSecret = "test-secret"
 
-func generateJWT(userID string, secret string, expiration time.Duration) string {
+func generateJWT(userID string, expiration time.Duration) string {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"exp":     time.Now().Add(expiration).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, _ := token.SignedString([]byte(secret))
+	signedToken, _ := token.SignedString([]byte(jwtSecret))
 	return signedToken
 }
 
 func TestAuthMiddleware(t *testing.T) {
+	t.Parallel()
+
 	mockRedis := testutils.NewMockRedis()
 	userID := "user123"
-	validToken := generateJWT(userID, jwtSecret, time.Minute)
-	expiredToken := generateJWT(userID, jwtSecret, -time.Minute)
+	validToken := generateJWT(userID, time.Minute)
+	expiredToken := generateJWT(userID, -time.Minute)
 
 	// Set valid token in Redis
 	_ = mockRedis.Set(context.Background(), validToken, userID, time.Minute)
@@ -45,6 +48,8 @@ func TestAuthMiddleware(t *testing.T) {
 	middleware := middlewares.AuthMiddleware(jwtSecret, mockRedis)
 
 	t.Run("Valid Token", func(t *testing.T) {
+		t.Parallel()
+
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", validToken)
 		rec := httptest.NewRecorder()
@@ -55,6 +60,8 @@ func TestAuthMiddleware(t *testing.T) {
 	})
 
 	t.Run("Invalid Token", func(t *testing.T) {
+		t.Parallel()
+
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "invalid-token")
 		rec := httptest.NewRecorder()
@@ -66,6 +73,8 @@ func TestAuthMiddleware(t *testing.T) {
 	})
 
 	t.Run("Expired Token", func(t *testing.T) {
+		t.Parallel()
+
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", expiredToken)
 		rec := httptest.NewRecorder()
@@ -77,7 +86,9 @@ func TestAuthMiddleware(t *testing.T) {
 	})
 
 	t.Run("Token Not in Redis", func(t *testing.T) {
-		tokenNotInRedis := generateJWT("user456", jwtSecret, time.Minute)
+		t.Parallel()
+
+		tokenNotInRedis := generateJWT("user456", time.Minute)
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", tokenNotInRedis)
 		rec := httptest.NewRecorder()
@@ -89,7 +100,9 @@ func TestAuthMiddleware(t *testing.T) {
 	})
 
 	t.Run("Redis Token Mismatch", func(t *testing.T) {
-		mismatchedToken := generateJWT("user456", jwtSecret, time.Minute)
+		t.Parallel()
+
+		mismatchedToken := generateJWT("user456", time.Minute)
 		_ = mockRedis.Set(context.Background(), mismatchedToken, "differentUser", time.Minute)
 
 		req := httptest.NewRequest(http.MethodGet, "/", nil)

@@ -29,6 +29,7 @@ func TestFromEnv(t *testing.T) {
 	cfg := config.NewConfigBuilder(testutils.GetTLogger()).FromEnv().Build()
 
 	// Manually parse the environment variables to a temporary config for comparison
+	//nolint:exhaustruct
 	tmpConfig := &config.Config{}
 	err := env.Parse(tmpConfig)
 	require.NoError(t, err, "Env parsing should not produce an error")

@@ -10,15 +10,19 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	handlers "github.com/npavlov/go-loyalty-service/internal/handlers/orders"
-	"github.com/npavlov/go-loyalty-service/internal/models"
-	testutils "github.com/npavlov/go-loyalty-service/internal/test_utils"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	handlers "github.com/npavlov/go-loyalty-service/internal/handlers/orders"
+	"github.com/npavlov/go-loyalty-service/internal/middlewares"
+	"github.com/npavlov/go-loyalty-service/internal/models"
+	testutils "github.com/npavlov/go-loyalty-service/internal/test_utils"
 )
 
 func TestHandlerOrders_GetOrders(t *testing.T) {
+	t.Parallel()
+
 	logger := zerolog.New(nil)
 	mockStorage := testutils.NewMockStorage()
 	orderProcessor := testutils.NewMockOrders(mockStorage, &logger)
@@ -27,15 +31,16 @@ func TestHandlerOrders_GetOrders(t *testing.T) {
 	// Set up mock data
 	userID := uuid.New().String()
 	orderNum := testutils.GenerateLuhnNumber(16)
-	orderId, err := mockStorage.CreateOrder(context.Background(), orderNum, userID)
+	orderID, err := mockStorage.CreateOrder(context.Background(), orderNum, userID)
 	require.NoError(t, err)
 
-	_, err = uuid.Parse(orderId)
+	_, err = uuid.Parse(orderID)
 	require.NoError(t, err)
 
 	// Create a request with the userID in context
 	req := httptest.NewRequest(http.MethodGet, "/orders", nil)
-	ctx := context.WithValue(req.Context(), "userID", userID)
+	//nolint:staticcheck
+	ctx := context.WithValue(req.Context(), middlewares.UserIDKey, userID)
 	req = req.WithContext(ctx)
 	resp := httptest.NewRecorder()
 
@@ -47,13 +52,15 @@ func TestHandlerOrders_GetOrders(t *testing.T) {
 
 	var orders []models.Order
 	err = json.Unmarshal(resp.Body.Bytes(), &orders)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, orders, 1)
 	assert.Equal(t, orderNum, orders[0].OrderId)
 	assert.Equal(t, models.NewStatus, orders[0].Status)
 }
 
 func TestHandlerOrders_Create(t *testing.T) {
+	t.Parallel()
+
 	logger := zerolog.New(nil)
 	mockStorage := testutils.NewMockStorage()
 	orderProcessor := testutils.NewMockOrders(mockStorage, &logger)
@@ -62,9 +69,12 @@ func TestHandlerOrders_Create(t *testing.T) {
 	userID := uuid.New().String()
 
 	t.Run("Valid order creation", func(t *testing.T) {
+		t.Parallel()
+
 		orderID := testutils.GenerateLuhnNumber(16)
 		req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader([]byte(orderID)))
-		ctx := context.WithValue(req.Context(), "userID", userID)
+		//nolint:staticcheck
+		ctx := context.WithValue(req.Context(), middlewares.UserIDKey, userID)
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
@@ -78,9 +88,12 @@ func TestHandlerOrders_Create(t *testing.T) {
 	})
 
 	t.Run("Invalid order number", func(t *testing.T) {
+		t.Parallel()
+
 		invalidOrderID := "12345" // Luhn invalid
 		req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader([]byte(invalidOrderID)))
-		ctx := context.WithValue(req.Context(), "userID", userID)
+		//nolint:staticcheck
+		ctx := context.WithValue(req.Context(), middlewares.UserIDKey, userID)
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
@@ -90,12 +103,14 @@ func TestHandlerOrders_Create(t *testing.T) {
 	})
 
 	t.Run("Order already exists for same user", func(t *testing.T) {
+		t.Parallel()
+
 		orderID := testutils.GenerateLuhnNumber(16)
 		_, err := mockStorage.CreateOrder(context.Background(), orderID, userID)
 		require.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader([]byte(orderID)))
-		ctx := context.WithValue(req.Context(), "userID", userID)
+		ctx := context.WithValue(req.Context(), middlewares.UserIDKey, userID)
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
@@ -105,13 +120,15 @@ func TestHandlerOrders_Create(t *testing.T) {
 	})
 
 	t.Run("Order already exists for different user", func(t *testing.T) {
+		t.Parallel()
+
 		orderID := testutils.GenerateLuhnNumber(16)
 		otherUserID := uuid.New().String()
 		_, err := mockStorage.CreateOrder(context.Background(), orderID, otherUserID)
 		require.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodPost, "/orders", bytes.NewReader([]byte(orderID)))
-		ctx := context.WithValue(req.Context(), "userID", userID)
+		ctx := context.WithValue(req.Context(), middlewares.UserIDKey, userID)
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
@@ -119,10 +136,11 @@ func TestHandlerOrders_Create(t *testing.T) {
 
 		assert.Equal(t, http.StatusConflict, resp.Code)
 	})
-
 }
 
 func TestMockOrders_ProcessOrders(t *testing.T) {
+	t.Parallel()
+
 	logger := zerolog.New(nil)
 	mockStorage := testutils.NewMockStorage()
 
@@ -135,11 +153,11 @@ func TestMockOrders_ProcessOrders(t *testing.T) {
 
 		// Create an order in storage
 		_, err := mockStorage.CreateOrder(context.Background(), orderID, userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Add the order to the processing queue
 		err = mockOrders.AddOrder(context.Background(), orderID, userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Start processing in a separate goroutine
 		go mockOrders.ProcessOrders(context.Background())
@@ -148,8 +166,8 @@ func TestMockOrders_ProcessOrders(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 
 		// Check if the order was processed
-		order, err := mockStorage.GetOrder(context.Background(), orderID)
-		assert.NoError(t, err)
+		order, found := mockStorage.GetOrder(context.Background(), orderID)
+		require.True(t, found)
 		assert.Equal(t, models.Processed, order.Status)
 
 		mockOrders.StopProcessing()
@@ -170,10 +188,10 @@ func TestMockOrders_ProcessOrders(t *testing.T) {
 		// Add orders to storage and queue
 		for _, orderID := range orderIDs {
 			_, err := mockStorage.CreateOrder(context.Background(), orderID, userID)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			err = mockOrders.AddOrder(context.Background(), orderID, userID)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
 		// Start processing
@@ -184,12 +202,11 @@ func TestMockOrders_ProcessOrders(t *testing.T) {
 
 		// Check if all orders were processed
 		for _, orderID := range orderIDs {
-			order, err := mockStorage.GetOrder(context.Background(), orderID)
-			assert.NoError(t, err)
+			order, found := mockStorage.GetOrder(context.Background(), orderID)
+			require.True(t, found)
 			assert.Equal(t, models.Processed, order.Status)
 		}
 
 		mockOrders.StopProcessing()
 	})
-
 }

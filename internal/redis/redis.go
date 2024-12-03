@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/npavlov/go-loyalty-service/internal/config"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/npavlov/go-loyalty-service/internal/config"
 )
 
 type RStorage struct {

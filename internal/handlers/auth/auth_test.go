@@ -4,27 +4,36 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
-	handlers "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
-	testutils "github.com/npavlov/go-loyalty-service/internal/test_utils"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/npavlov/go-loyalty-service/internal/config"
+	handlers "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
 	"github.com/npavlov/go-loyalty-service/internal/models"
+	testutils "github.com/npavlov/go-loyalty-service/internal/test_utils"
+)
+
+const (
+	password = "password123"
 )
 
 func TestHandlerAuth_RegisterHandler(t *testing.T) {
+	t.Parallel()
+
 	// Mock storage and Redis
 	mockStorage := testutils.NewMockStorage()
 	mockRedis := testutils.NewMockRedis()
 
 	logger := zerolog.New(nil)
+	//nolint:exhaustruct
 	cfg := &config.Config{
 		JwtSecret: "test-secret",
 	}
@@ -36,7 +45,8 @@ func TestHandlerAuth_RegisterHandler(t *testing.T) {
 		Login:    "testuser",
 		Password: "password123",
 	}
-	body, _ := json.Marshal(user)
+	body, err := json.Marshal(user)
+	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -44,21 +54,29 @@ func TestHandlerAuth_RegisterHandler(t *testing.T) {
 	rec := httptest.NewRecorder()
 	authHandler.RegisterHandler(rec, req)
 
+	// Retrieve the response and ensure the body is closed
+	res := rec.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(res.Body)
+
 	// Assertions
 	assert.Equal(t, http.StatusOK, rec.Code)
-	cookie := rec.Result().Cookies()
+	cookie := res.Cookies()
 	assert.NotNil(t, cookie)
 	assert.Contains(t, rec.Header().Get("Authorization"), "eyJhb") // JWT header base64 prefix
 }
 
 func TestHandlerAuth_LoginHandler(t *testing.T) {
+	t.Parallel()
+
 	// Mock storage and Redis
 	mockStorage := testutils.NewMockStorage()
 	mockRedis := testutils.NewMockRedis()
 
 	// Add a test user to the mock storage
 	username := "testuser"
-	password := "password123"
+
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	userID := uuid.New().String()
 	mockStorage.Users[username] = &models.Login{
@@ -67,6 +85,7 @@ func TestHandlerAuth_LoginHandler(t *testing.T) {
 	}
 
 	logger := zerolog.New(nil)
+	//nolint:exhaustruct
 	cfg := &config.Config{
 		JwtSecret: "test-secret",
 	}
@@ -78,7 +97,8 @@ func TestHandlerAuth_LoginHandler(t *testing.T) {
 		Login:    username,
 		Password: password,
 	}
-	body, _ := json.Marshal(user)
+	body, err := json.Marshal(user)
+	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -93,18 +113,20 @@ func TestHandlerAuth_LoginHandler(t *testing.T) {
 	// Check Redis for token storage
 	token := rec.Header().Get("Authorization")
 	storedUserID, err := mockRedis.Get(context.Background(), token)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, userID, storedUserID)
 }
 
 func TestHandlerAuth_LoginHandlerInvalidPassword(t *testing.T) {
+	t.Parallel()
+
 	// Mock storage and Redis
 	mockStorage := testutils.NewMockStorage()
 	mockRedis := testutils.NewMockRedis()
 
 	// Add a test user to the mock storage
 	username := "testuser"
-	password := "password123"
+
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	userID := uuid.New().String()
 	mockStorage.Users[username] = &models.Login{
@@ -113,6 +135,7 @@ func TestHandlerAuth_LoginHandlerInvalidPassword(t *testing.T) {
 	}
 
 	logger := zerolog.New(nil)
+	//nolint:exhaustruct
 	cfg := &config.Config{
 		JwtSecret: "test-secret",
 	}
@@ -124,7 +147,8 @@ func TestHandlerAuth_LoginHandlerInvalidPassword(t *testing.T) {
 		Login:    username,
 		Password: "wrongpassword",
 	}
-	body, _ := json.Marshal(user)
+	body, err := json.Marshal(user)
+	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -138,6 +162,8 @@ func TestHandlerAuth_LoginHandlerInvalidPassword(t *testing.T) {
 }
 
 func TestHandlerAuth_RegisterHandler_UserAlreadyExists(t *testing.T) {
+	t.Parallel()
+
 	// Mock storage and Redis
 	mockStorage := testutils.NewMockStorage()
 	mockRedis := testutils.NewMockRedis()
@@ -145,10 +171,12 @@ func TestHandlerAuth_RegisterHandler_UserAlreadyExists(t *testing.T) {
 	// Add an existing user to the mock storage
 	existingUsername := "existinguser"
 	existingPassword := "password123"
+
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(existingPassword), bcrypt.DefaultCost)
 	_, _ = mockStorage.AddUser(context.Background(), existingUsername, string(hashedPassword))
 
 	logger := zerolog.New(nil)
+	//nolint:exhaustruct
 	cfg := &config.Config{
 		JwtSecret: "test-secret",
 	}
@@ -160,7 +188,8 @@ func TestHandlerAuth_RegisterHandler_UserAlreadyExists(t *testing.T) {
 		Login:    existingUsername,
 		Password: "anotherpassword",
 	}
-	body, _ := json.Marshal(user)
+	body, err := json.Marshal(user)
+	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 

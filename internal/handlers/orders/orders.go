@@ -8,6 +8,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/npavlov/go-loyalty-service/internal/middlewares"
 	"github.com/npavlov/go-loyalty-service/internal/orders"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
@@ -29,7 +30,7 @@ func NewOrdersHandler(storage storage.Storage, orderProc orders.QueueProcessor, 
 }
 
 func (mh *HandlerOrders) GetOrders(response http.ResponseWriter, req *http.Request) {
-	currentUser := req.Context().Value("userID").(string)
+	currentUser := req.Context().Value(middlewares.UserIDKey).(string)
 
 	dbOrders, err := mh.storage.GetOrders(req.Context(), currentUser)
 	if err != nil {
@@ -86,42 +87,37 @@ func (mh *HandlerOrders) Create(response http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	currentUser := req.Context().Value("userID").(string)
+	currentUser := req.Context().Value(middlewares.UserIDKey).(string)
 
-	order, err := mh.storage.GetOrder(req.Context(), orderNum)
-	if err != nil {
-		mh.logger.Error().Err(err).Msg("Order Create: error getting order")
+	order, found := mh.storage.GetOrder(req.Context(), orderNum)
 
-		return
-	}
-
-	if order != nil && order.UserId.String() == currentUser {
+	if found && order.UserId.String() == currentUser {
 		mh.logger.Info().Str("orderNum", orderNum).Msg("Order is already created by this user")
 		response.WriteHeader(http.StatusOK)
 
 		return
 	}
 
-	if order != nil && order.UserId.String() != currentUser {
+	if found && order.UserId.String() != currentUser {
 		mh.logger.Info().Str("orderNum", orderNum).Msg("Order is already created by other user")
 		response.WriteHeader(http.StatusConflict)
 
 		return
 	}
 
-	newOrderId, err := mh.storage.CreateOrder(req.Context(), orderNum, currentUser)
+	newOrderID, err := mh.storage.CreateOrder(req.Context(), orderNum, currentUser)
 	if err != nil {
 		mh.logger.Error().Err(err).Msg("Order Create: error creating order")
 
 		return
 	}
 
-	mh.logger.Info().Str("orderNum", orderNum).Str("Id", newOrderId).Msg("OrderId created")
+	mh.logger.Info().Str("orderNum", orderNum).Str("Id", newOrderID).Msg("OrderId created")
 	err = mh.orderProcessor.AddOrder(context.Background(), orderNum, currentUser)
 	if err != nil {
 		mh.logger.Err(err).Msg("Error adding order")
 	}
 
 	response.WriteHeader(http.StatusAccepted)
-	_, _ = response.Write([]byte(newOrderId))
+	_, _ = response.Write([]byte(newOrderID))
 }

@@ -8,13 +8,14 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/npavlov/go-loyalty-service/internal/redis"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	"github.com/npavlov/go-loyalty-service/internal/models"
+	"github.com/npavlov/go-loyalty-service/internal/redis"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
 )
@@ -27,16 +28,18 @@ type HandlerAuth struct {
 	memStorage redis.MemStorage
 }
 
-var tokenExpiration = time.Minute * 60
+const (
+	tokenExpiration = time.Minute * 60
+)
 
 // NewAuthHandler - constructor for AuthHandler.
-func NewAuthHandler(storage storage.Storage, cfg *config.Config, memStorage redis.MemStorage, l *zerolog.Logger) *HandlerAuth {
+func NewAuthHandler(st storage.Storage, cfg *config.Config, memSt redis.MemStorage, l *zerolog.Logger) *HandlerAuth {
 	return &HandlerAuth{
 		logger:     l,
-		storage:    storage,
+		storage:    st,
 		cfg:        cfg,
 		validate:   validator.New(),
-		memStorage: memStorage,
+		memStorage: memSt,
 	}
 }
 
@@ -121,9 +124,9 @@ func (ah *HandlerAuth) LoginHandler(writer http.ResponseWriter, request *http.Re
 	// Use the correct field name for username
 	username := req.Login // or req.Login if that's the correct field in models.User
 
-	login, err := ah.storage.GetUser(request.Context(), username)
-	if err != nil {
-		ah.logger.Error().Err(err).Msg("Error getting user")
+	login, found := ah.storage.GetUser(request.Context(), username)
+	if !found {
+		ah.logger.Error().Msg("Error getting user")
 		http.Error(writer, "Error getting user", http.StatusInternalServerError)
 
 		return
@@ -145,7 +148,7 @@ func (ah *HandlerAuth) LoginHandler(writer http.ResponseWriter, request *http.Re
 	}
 
 	// Verify the provided password
-	err = bcrypt.CompareHashAndPassword([]byte(login.HashedPassword), []byte(req.Password))
+	err := bcrypt.CompareHashAndPassword([]byte(login.HashedPassword), []byte(req.Password))
 	if err != nil {
 		http.Error(writer, "Invalid username or password", http.StatusUnauthorized)
 		ah.logger.Error().Err(err).Msg("Invalid username or password")
@@ -185,7 +188,7 @@ func (ah *HandlerAuth) generateJWT(userID string, jwtSecret string) (string, err
 func (ah *HandlerAuth) storeInRedis(ctx context.Context, userID string, token string) error {
 	err := ah.memStorage.Set(ctx, token, userID, tokenExpiration)
 
-	return err
+	return errors.Wrap(err, "Error storing token in Redis")
 }
 
 func (ah *HandlerAuth) returnToken(writer http.ResponseWriter, token string) {

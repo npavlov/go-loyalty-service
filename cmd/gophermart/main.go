@@ -8,25 +8,28 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
-	authHandler "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
-	"github.com/npavlov/go-loyalty-service/internal/redis"
 	"github.com/rs/zerolog"
 
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
+	authHandler "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
 	balanceHandler "github.com/npavlov/go-loyalty-service/internal/handlers/balance"
 	healthHandler "github.com/npavlov/go-loyalty-service/internal/handlers/health"
 	ordersHandler "github.com/npavlov/go-loyalty-service/internal/handlers/orders"
 	"github.com/npavlov/go-loyalty-service/internal/logger"
 	"github.com/npavlov/go-loyalty-service/internal/orders"
 	"github.com/npavlov/go-loyalty-service/internal/queue"
+	"github.com/npavlov/go-loyalty-service/internal/redis"
 	"github.com/npavlov/go-loyalty-service/internal/router"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
 )
 
+const orderTopic = "orders"
+
 var (
-	orderTopic = "orders"
+	ErrDatabaseNotConnected = errors.New("database is not connected")
+	ErrJWTisNotPorvided     = errors.New("JWT token is not provided")
 )
 
 func main() {
@@ -44,7 +47,7 @@ func main() {
 	log.Info().Interface("config", cfg).Msg("Configuration loaded")
 
 	if cfg.JwtSecret == "" {
-		panic(errors.New("jwt secret not provided"))
+		panic(ErrJWTisNotPorvided)
 	}
 
 	ctx, cancel := utils.WithSignalCancel(context.Background(), log)
@@ -52,7 +55,7 @@ func main() {
 	dbManager := dbmanager.NewDBManager(cfg.Database, log).Connect(ctx).ApplyMigrations()
 	defer dbManager.Close()
 	if dbManager.DB == nil {
-		panic(errors.New("database is not connected"))
+		panic(ErrDatabaseNotConnected)
 	}
 
 	st := storage.NewDBStorage(dbManager.DB, log)

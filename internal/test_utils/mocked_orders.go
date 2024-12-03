@@ -6,8 +6,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/npavlov/go-loyalty-service/internal/models"
 	"github.com/rs/zerolog"
+
+	"github.com/npavlov/go-loyalty-service/internal/models"
+)
+
+const (
+	bufferSize      = 100
+	simulateAccrual = 100.0
+	simulateTimeout = 100 * time.Millisecond
 )
 
 type KafkaOrder struct {
@@ -27,11 +34,13 @@ type MockOrders struct {
 
 func NewMockOrders(storage *MockStorage, log *zerolog.Logger) *MockOrders {
 	return &MockOrders{
-		log:        log,
-		storage:    storage,
-		orderChan:  make(chan KafkaOrder, 100), // Buffered channel for async processing
-		stopChan:   make(chan struct{}),
-		processing: make(map[string]bool),
+		log:         log,
+		storage:     storage,
+		orderChan:   make(chan KafkaOrder, bufferSize), // Buffered channel for async processing
+		stopChan:    make(chan struct{}),
+		processing:  make(map[string]bool),
+		wg:          sync.WaitGroup{},
+		processLock: sync.Mutex{},
 	}
 }
 
@@ -102,11 +111,11 @@ func (mo *MockOrders) checkOrderStatus(ctx context.Context, message KafkaOrder) 
 	mo.log.Info().Interface("OrderNum", message).Msg("Retrieving Order Id (mock)")
 
 	// Simulate status update
-	time.Sleep(100 * time.Millisecond) // Simulate processing time
+	time.Sleep(simulateTimeout) // Simulate processing time
 	update := &models.Accrual{
 		OrderId: message.OrderNum,
-		Status:  string(models.Processed), // Mock processed status
-		Accrual: float64Ptr(100.0),        // Mock accrual value
+		Status:  string(models.Processed),    // Mock processed status
+		Accrual: float64Ptr(simulateAccrual), // Mock accrual value
 	}
 
 	err := mo.storage.UpdateOrder(ctx, update, message.UserId)

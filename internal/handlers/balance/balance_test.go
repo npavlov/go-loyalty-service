@@ -8,28 +8,33 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/npavlov/go-loyalty-service/internal/handlers/balance"
-	testutils "github.com/npavlov/go-loyalty-service/internal/test_utils"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/npavlov/go-loyalty-service/internal/models"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/npavlov/go-loyalty-service/internal/handlers/balance"
+	"github.com/npavlov/go-loyalty-service/internal/middlewares"
+	"github.com/npavlov/go-loyalty-service/internal/models"
+	testutils "github.com/npavlov/go-loyalty-service/internal/test_utils"
 )
 
-var mockedUserId = "test-user-id"
+const mockedUserID = "test-user-id"
 
 func setupHandlerBalance() (*balance.HandlerBalance, *testutils.MockStorage, context.Context) {
 	logger := zerolog.New(nil)
 	mockStorage := testutils.NewMockStorage()
 	handler := balance.NewBalanceHandler(mockStorage, &logger)
-	ctx := context.WithValue(context.Background(), "userID", mockedUserId)
+	//nolint:staticcheck
+	ctx := context.WithValue(context.Background(), middlewares.UserIDKey, mockedUserID)
 	return handler, mockStorage, ctx
 }
 
 func TestHandlerBalance_GetBalance(t *testing.T) {
+	t.Parallel()
+
 	handler, mockStorage, ctx := setupHandlerBalance()
 
-	mockStorage.Balances[mockedUserId] = &models.Balance{
+	mockStorage.Balances[mockedUserID] = &models.Balance{
 		Balance:   100.0,
 		Withdrawn: 20.0,
 	}
@@ -47,15 +52,17 @@ func TestHandlerBalance_GetBalance(t *testing.T) {
 
 	var response models.Balance
 	err := json.Unmarshal(rec.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Equal(t, 100.0, response.Balance)
-	assert.Equal(t, 20.0, response.Withdrawn)
+	require.NoError(t, err)
+	assert.InDelta(t, 100.0, response.Balance, 0.001)
+	assert.InDelta(t, 20.0, response.Withdrawn, 0.001)
 }
 
 func TestHandlerBalance_MakeWithdrawal(t *testing.T) {
+	t.Parallel()
+
 	handler, mockStorage, ctx := setupHandlerBalance()
 
-	mockStorage.Balances[mockedUserId] = &models.Balance{
+	mockStorage.Balances[mockedUserID] = &models.Balance{
 		Balance:   100.0,
 		Withdrawn: 20.0,
 	}
@@ -85,16 +92,18 @@ func TestHandlerBalance_MakeWithdrawal(t *testing.T) {
 
 	var response models.Balance
 	err := json.Unmarshal(rec.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Equal(t, 50.0, response.Balance)
-	assert.Equal(t, 70.0, response.Withdrawn)
+	require.NoError(t, err)
+	assert.InDelta(t, 50.0, response.Balance, 0.001)
+	assert.InDelta(t, 70.0, response.Withdrawn, 0.001)
 }
 
 func TestHandlerBalance_MakeWithdrawal_InsufficientBalance(t *testing.T) {
+	t.Parallel()
+
 	handler, mockStorage, ctx := setupHandlerBalance()
 
 	// Mock the storage behavior
-	mockStorage.Balances[mockedUserId] = &models.Balance{
+	mockStorage.Balances[mockedUserID] = &models.Balance{
 		Balance:   30.0,
 		Withdrawn: 20.0,
 	}
@@ -104,7 +113,8 @@ func TestHandlerBalance_MakeWithdrawal_InsufficientBalance(t *testing.T) {
 		Order: testutils.GenerateLuhnNumber(16),
 		Sum:   50.0,
 	}
-	body, _ := json.Marshal(withdrawal)
+	body, err := json.Marshal(withdrawal)
+	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/api/user/withdraw", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(ctx)
@@ -119,16 +129,18 @@ func TestHandlerBalance_MakeWithdrawal_InsufficientBalance(t *testing.T) {
 }
 
 func TestHandlerBalance_GetWithdrawals(t *testing.T) {
+	t.Parallel()
+
 	handler, mockStorage, ctx := setupHandlerBalance()
 
-	mockStorage.Balances[mockedUserId] = &models.Balance{
+	mockStorage.Balances[mockedUserID] = &models.Balance{
 		Balance:   100.0,
 		Withdrawn: 20.0,
 	}
 	// Mock the storage behavior
 	withdrawalOrderNum := testutils.GenerateLuhnNumber(16)
 	withdrawals := map[string]*models.Withdrawal{
-		withdrawalOrderNum: {OrderId: withdrawalOrderNum, Sum: float64Ptr(50.0), UserId: mockedUserId},
+		withdrawalOrderNum: {OrderId: withdrawalOrderNum, Sum: float64Ptr(50.0), UserId: mockedUserID},
 	}
 	mockStorage.Withdrawals = withdrawals
 
@@ -145,12 +157,14 @@ func TestHandlerBalance_GetWithdrawals(t *testing.T) {
 
 	var response []models.Withdrawal
 	err := json.Unmarshal(rec.Body.Bytes(), &response)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, response, 1)
 	assert.Equal(t, withdrawalOrderNum, response[0].OrderId)
 }
 
 func TestHandlerBalance_GetWithdrawals_NoContent(t *testing.T) {
+	t.Parallel()
+
 	handler, mockStorage, ctx := setupHandlerBalance()
 
 	// Mock the storage behavior

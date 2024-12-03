@@ -22,7 +22,8 @@ type mockValue struct {
 // NewMockRedis initializes a new MockRedis instance.
 func NewMockRedis() *MockRedis {
 	return &MockRedis{
-		data: make(map[string]mockValue),
+		data:  make(map[string]mockValue),
+		mutex: sync.RWMutex{},
 	}
 }
 

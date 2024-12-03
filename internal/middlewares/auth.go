@@ -5,8 +5,11 @@ import (
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v4"
+
 	"github.com/npavlov/go-loyalty-service/internal/redis"
 )
+
+const UserIDKey string = "userID"
 
 func AuthMiddleware(jwtSecret string, memStorage redis.MemStorage) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -37,7 +40,7 @@ func AuthMiddleware(jwtSecret string, memStorage redis.MemStorage) func(http.Han
 				return
 			}
 
-			ctx := context.WithValue(request.Context(), "userID", userID)
+			ctx := context.WithValue(request.Context(), UserIDKey, userID)
 			next.ServeHTTP(responseWriter, request.WithContext(ctx))
 		})
 	}

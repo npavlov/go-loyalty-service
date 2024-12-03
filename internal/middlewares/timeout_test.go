@@ -21,7 +21,7 @@ func TestTimeoutMiddleware_Success(t *testing.T) {
 		// Check if context deadline is set
 		deadline, ok := r.Context().Deadline()
 		assert.True(t, ok, "Expected context to have a deadline")
-		assert.WithinDuration(t, time.Now().Add(timeout), deadline, time.Second, "Expected context deadline to be close to the timeout")
+		assert.WithinDuration(t, time.Now().Add(timeout), deadline, time.Second, "Expected context timeout")
 
 		writer.WriteHeader(http.StatusOK)
 	}))

@@ -3,16 +3,18 @@ package orders
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	"github.com/npavlov/go-loyalty-service/internal/models"
 )
+
+var CantProcessError = errors.New("can't process orders")
 
 type Sender struct {
 	cfg *config.Config
@@ -41,7 +43,7 @@ func (sender *Sender) SendPostRequest(ctx context.Context, orderNumber string) (
 	if err != nil {
 		sender.l.Error().Err(err).Send()
 
-		return nil, err
+		return nil, errors.Wrap(err, "could not send request")
 	}
 
 	switch resp.StatusCode() {
@@ -50,7 +52,7 @@ func (sender *Sender) SendPostRequest(ctx context.Context, orderNumber string) (
 		if err := json.Unmarshal(resp.Body(), &response); err != nil {
 			sender.l.Error().Err(err).Msg("failed to unmarshal response")
 
-			return nil, err
+			return nil, errors.Wrap(err, "failed to unmarshal response")
 		}
 
 		return &response, nil
@@ -61,5 +63,5 @@ func (sender *Sender) SendPostRequest(ctx context.Context, orderNumber string) (
 		sender.l.Error().Int("status", resp.StatusCode()).Msg("Can't process orders, retry")
 	}
 
-	return nil, errors.New("can't process orders")
+	return nil, CantProcessError
 }

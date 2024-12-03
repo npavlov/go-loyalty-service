@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/npavlov/go-loyalty-service/internal/middlewares"
 	"github.com/npavlov/go-loyalty-service/internal/models"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
@@ -25,7 +26,13 @@ func NewBalanceHandler(storage storage.Storage, l *zerolog.Logger) *HandlerBalan
 }
 
 func (mh *HandlerBalance) GetBalance(response http.ResponseWriter, req *http.Request) {
-	currentUser := req.Context().Value("userID").(string)
+	currentUser, ok := req.Context().Value(middlewares.UserIDKey).(string)
+	if !ok {
+		mh.logger.Error().Msg("user id not found")
+		http.Error(response, "user id not found", http.StatusUnprocessableEntity)
+
+		return
+	}
 
 	dbBalance, err := mh.storage.GetBalance(req.Context(), currentUser)
 	if err != nil {
@@ -68,7 +75,13 @@ func (mh *HandlerBalance) MakeWithdrawal(response http.ResponseWriter, req *http
 		return
 	}
 
-	currentUser := req.Context().Value("userID").(string)
+	currentUser, ok := req.Context().Value(middlewares.UserIDKey).(string)
+	if !ok {
+		mh.logger.Error().Msg("user id not found")
+		http.Error(response, "user id not found", http.StatusUnprocessableEntity)
+
+		return
+	}
 
 	balance, err := mh.storage.GetBalance(req.Context(), currentUser)
 	if err != nil {
@@ -102,7 +115,13 @@ func (mh *HandlerBalance) MakeWithdrawal(response http.ResponseWriter, req *http
 // GetWithdrawals handles the `GET /api/user/withdrawals` endpoint.
 func (mh *HandlerBalance) GetWithdrawals(response http.ResponseWriter, req *http.Request) {
 	// Retrieve the authenticated user ID from the context
-	currentUser := req.Context().Value("userID").(string)
+	currentUser, ok := req.Context().Value(middlewares.UserIDKey).(string)
+	if !ok {
+		mh.logger.Error().Msg("user id not found")
+		http.Error(response, "user id not found", http.StatusUnprocessableEntity)
+
+		return
+	}
 
 	// Fetch withdrawals from storage
 	withdrawals, err := mh.storage.GetWithdrawals(req.Context(), currentUser)

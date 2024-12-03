@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/segmentio/kafka-go"
 
@@ -54,7 +55,7 @@ func (or *Orders) AddOrder(ctx context.Context, orderNum string, userId string) 
 	if err != nil {
 		or.log.Error().Err(err).Msg("Error marshalling data for Kafka")
 
-		return err
+		return errors.Wrap(err, "Error marshalling data for Kafka")
 	}
 
 	err = or.writer.WriteMessages(ctx, kafka.Message{
@@ -64,7 +65,7 @@ func (or *Orders) AddOrder(ctx context.Context, orderNum string, userId string) 
 	if err != nil {
 		or.log.Error().Err(err).Msg("Error writing to kafka")
 
-		return err
+		return errors.Wrap(err, "Error writing to kafka")
 	}
 
 	or.log.Info().Interface("order", data).Msg("NewOrder sent to Kafka")
@@ -107,9 +108,8 @@ func (or *Orders) ProcessOrders(ctx context.Context) {
 
 				or.log.Info().Interface("order", data).Msg("Order can't be processed in Kafka, skipping")
 				_ = or.reader.CommitMessages(ctx, msg)
+
 				continue
-				// Should we add order again?
-				// _ = or.AddOrder(ctx, data.OrderNum, data.UserId)
 			}
 
 			_ = or.reader.CommitMessages(ctx, msg)
@@ -129,7 +129,7 @@ func (or *Orders) checkOrderStatus(ctx context.Context, message KafkaOrder) erro
 
 	err = or.storage.UpdateOrder(ctx, result, message.UserId)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error updating order")
 	}
 
 	return nil

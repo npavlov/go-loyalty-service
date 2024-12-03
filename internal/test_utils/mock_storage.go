@@ -2,12 +2,13 @@ package testutils
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/pkg/errors"
+
 	"github.com/npavlov/go-loyalty-service/internal/models"
 )
 
@@ -25,6 +26,7 @@ func NewMockStorage() *MockStorage {
 		orders:      make(map[string]*models.Order),
 		Withdrawals: make(map[string]*models.Withdrawal),
 		Balances:    make(map[string]*models.Balance),
+		mu:          sync.Mutex{},
 	}
 }
 
@@ -33,7 +35,8 @@ func (m *MockStorage) AddUser(_ context.Context, username string, passwordHash s
 	defer m.mu.Unlock()
 
 	if _, exists := m.Users[username]; exists {
-		var pgErr = pgconn.PgError{
+		//nolint:exhaustruct
+		pgErr := pgconn.PgError{
 			Code:    "23505",
 			Message: "User with username already exists",
 		}
@@ -50,28 +53,28 @@ func (m *MockStorage) AddUser(_ context.Context, username string, passwordHash s
 	return userID.String(), nil
 }
 
-func (m *MockStorage) GetUser(_ context.Context, username string) (*models.Login, error) {
+func (m *MockStorage) GetUser(_ context.Context, username string) (*models.Login, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	user, exists := m.Users[username]
 	if !exists {
-		return nil, nil
+		return nil, false
 	}
 
-	return user, nil
+	return user, true
 }
 
-func (m *MockStorage) GetOrder(_ context.Context, orderNum string) (*models.Order, error) {
+func (m *MockStorage) GetOrder(_ context.Context, orderNum string) (*models.Order, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	order, exists := m.orders[orderNum]
 	if !exists {
-		return nil, nil
+		return nil, false
 	}
 
-	return order, nil
+	return order, true
 }
 
 func (m *MockStorage) GetOrders(_ context.Context, userID string) ([]models.Order, error) {
@@ -96,16 +99,16 @@ func (m *MockStorage) CreateOrder(_ context.Context, orderNum string, userId str
 		return "", errors.New("order already exists")
 	}
 
-	parsedUserId, err := uuid.Parse(userId)
+	parsedUserID, err := uuid.Parse(userId)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "parsing user id")
 	}
 
 	orderID, _ := uuid.NewUUID()
 	m.orders[orderNum] = &models.Order{
 		Id:        orderID,
 		OrderId:   orderNum,
-		UserId:    parsedUserId,
+		UserId:    parsedUserID,
 		Status:    models.NewStatus,
 		Accrual:   float64Ptr(0),
 		CreatedAt: time.Now(),
@@ -114,12 +117,12 @@ func (m *MockStorage) CreateOrder(_ context.Context, orderNum string, userId str
 	return orderID.String(), nil
 }
 
-func (m *MockStorage) UpdateOrder(_ context.Context, update *models.Accrual, userId string) error {
+func (m *MockStorage) UpdateOrder(_ context.Context, update *models.Accrual, userID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	order, exists := m.orders[update.OrderId]
-	if !exists || order.UserId.String() != userId {
+	if !exists || order.UserId.String() != userID {
 		return errors.New("order not found or unauthorized access")
 	}
 
@@ -138,7 +141,10 @@ func (m *MockStorage) GetBalance(_ context.Context, userID string) (*models.Bala
 
 	balance, exists := m.Balances[userID]
 	if !exists {
-		return &models.Balance{}, nil
+		return &models.Balance{
+			Balance:   0,
+			Withdrawn: 0,
+		}, nil
 	}
 
 	return balance, nil
@@ -161,21 +167,10 @@ func (m *MockStorage) MakeWithdrawn(_ context.Context, userId string, orderNum s
 		OrderId:   orderNum,
 		Sum:       float64Ptr(sum),
 		CreatedAt: time.Now(),
+		UserId:    userId,
 	}
 
 	return nil
-}
-
-func (m *MockStorage) GetWithdrawal(_ context.Context, orderNum string) (*models.Withdrawal, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	withdrawal, exists := m.Withdrawals[orderNum]
-	if !exists {
-		return nil, nil
-	}
-
-	return withdrawal, nil
 }
 
 func (m *MockStorage) GetWithdrawals(_ context.Context, userId string) ([]models.Withdrawal, error) {
