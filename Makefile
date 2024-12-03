@@ -1,6 +1,7 @@
 # Define Go command, which can be overridden
 GO ?= go
 
+include Makefile.local
 
 # Default target: formats code, runs the linter, and builds both agent and server binaries
 .PHONY: all
@@ -71,9 +72,9 @@ atlas-migration:
 # Apply migrations using Goose
 .PHONY: goose-up
 goose-up:
-	goose -dir migrations postgres "$(DATABASE_DSN)" up
+	goose -dir migrations postgres "$(DATABASE_URI)" up
 
 # Rollback migrations using Goose
 .PHONY: goose-down
 goose-down:
-	goose -dir migrations postgres "$(DATABASE_DSN)" down
+	goose -dir migrations postgres "$(DATABASE_URI)" down
