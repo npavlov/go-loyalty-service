@@ -53,9 +53,8 @@ func TestHandlerAuth_RegisterHandler(t *testing.T) {
 	rec := httptest.NewRecorder()
 	authHandler.RegisterHandler(rec, req)
 
-	// Retrieve the response and ensure the body is closed
-	//nolint:bodyclose
 	res := rec.Result()
+	defer res.Body.Close()
 
 	// Assertions
 	assert.Equal(t, http.StatusOK, rec.Code)
