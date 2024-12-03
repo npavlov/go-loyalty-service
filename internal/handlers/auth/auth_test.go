@@ -197,3 +197,91 @@ func TestHandlerAuth_RegisterHandler_UserAlreadyExists(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, rec.Code)
 	assert.Contains(t, rec.Body.String(), "Username already exists")
 }
+
+func TestHandlerAuth_LoginHandler_EmptyFields(t *testing.T) {
+	t.Parallel()
+
+	// Mock storage and Redis
+	mockStorage := testutils.NewMockStorage()
+	mockRedis := testutils.NewMockRedis()
+
+	logger := zerolog.New(nil)
+	//nolint:exhaustruct
+	cfg := &config.Config{
+		JwtSecret: "test-secret",
+	}
+
+	authHandler := handlers.NewAuthHandler(mockStorage, cfg, mockRedis, &logger)
+
+	tests := []struct {
+		name     string
+		user     models.User
+		expected int
+	}{
+		{
+			name:     "Empty Username",
+			user:     models.User{Login: "", Password: "password123"},
+			expected: http.StatusBadRequest,
+		},
+		{
+			name:     "Empty Password",
+			user:     models.User{Login: "testuser", Password: ""},
+			expected: http.StatusBadRequest,
+		},
+		{
+			name:     "Both Empty",
+			user:     models.User{Login: "", Password: ""},
+			expected: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			body, err := json.Marshal(tc.user)
+			require.NoError(t, err)
+			req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			rec := httptest.NewRecorder()
+			authHandler.LoginHandler(rec, req)
+
+			assert.Equal(t, tc.expected, rec.Code)
+		})
+	}
+}
+
+func TestHandlerAuth_LoginHandler_UserNotFound(t *testing.T) {
+	t.Parallel()
+
+	// Mock storage and Redis
+	mockStorage := testutils.NewMockStorage()
+	mockRedis := testutils.NewMockRedis()
+
+	logger := zerolog.New(nil)
+	//nolint:exhaustruct
+	cfg := &config.Config{
+		JwtSecret: "test-secret",
+	}
+
+	authHandler := handlers.NewAuthHandler(mockStorage, cfg, mockRedis, &logger)
+
+	// Prepare the request with a username not in the storage
+	user := models.User{
+		Login:    "nonexistentuser",
+		Password: "password123",
+	}
+	body, err := json.Marshal(user)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Record the response
+	rec := httptest.NewRecorder()
+	authHandler.LoginHandler(rec, req)
+
+	// Assertions
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.Contains(t, rec.Body.String(), "Invalid username or password")
+}

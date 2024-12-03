@@ -30,6 +30,10 @@ func LuhnCheck(number string) bool {
 		sum += digit
 	}
 
+	if sum == 0 {
+		return false
+	}
+
 	// Check if the sum is divisible by the modulus
 	return sum%Modulus == 0
 }

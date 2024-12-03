@@ -125,14 +125,8 @@ func (ah *HandlerAuth) LoginHandler(writer http.ResponseWriter, request *http.Re
 	username := req.Login // or req.Login if that's the correct field in models.User
 
 	login, found := ah.storage.GetUser(request.Context(), username)
+
 	if !found {
-		ah.logger.Error().Msg("Error getting user")
-		http.Error(writer, "Error getting user", http.StatusInternalServerError)
-
-		return
-	}
-
-	if login == nil {
 		ah.logger.Error().Str("username", username).Msg("Login for user not found")
 		http.Error(writer, "Invalid username or password", http.StatusUnauthorized)
 
