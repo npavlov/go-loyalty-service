@@ -29,13 +29,13 @@ func NewSender(cfg *config.Config, logger *zerolog.Logger) *Sender {
 }
 
 func (sender *Sender) SendPostRequest(ctx context.Context, orderNumber string) (*models.Accrual, error) {
-	// Создаем HTTP-клиент
+	// Create HTTP Client
 	client := resty.New()
 
-	// Формируем URL для внешнего сервиса
+	// Make URL for request
 	url := fmt.Sprintf("%s/api/orders/%s", sender.cfg.AccrualAddress, orderNumber)
 
-	// Выполняем запрос
+	// Make a call
 	resp, err := client.R().
 		SetContext(ctx).
 		SetHeader("Accept", "application/json").
