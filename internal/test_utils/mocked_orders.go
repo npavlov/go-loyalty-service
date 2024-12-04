@@ -23,7 +23,6 @@ type MockOrders struct {
 	log         *zerolog.Logger
 	storage     *MockStorage
 	orderChan   chan orders.KafkaOrder
-	wg          sync.WaitGroup
 	stopChan    chan struct{}
 	processing  map[string]bool // Tracks currently processing orders
 	processLock sync.Mutex      // Synchronizes access to `processing`
@@ -36,7 +35,6 @@ func NewMockOrders(storage *MockStorage, log *zerolog.Logger) *MockOrders {
 		orderChan:   make(chan orders.KafkaOrder, bufferSize), // Buffered channel for async processing
 		stopChan:    make(chan struct{}),
 		processing:  make(map[string]bool),
-		wg:          sync.WaitGroup{},
 		processLock: sync.Mutex{},
 	}
 }
@@ -62,9 +60,7 @@ func (mo *MockOrders) AddOrder(ctx context.Context, orderNum string, userID stri
 }
 
 func (mo *MockOrders) ProcessOrders(ctx context.Context) {
-	mo.wg.Add(1)
 	go func() {
-		defer mo.wg.Done()
 		for {
 			select {
 			case <-mo.stopChan:
@@ -80,7 +76,6 @@ func (mo *MockOrders) ProcessOrders(ctx context.Context) {
 
 func (mo *MockOrders) StopProcessing() {
 	close(mo.stopChan)
-	mo.wg.Wait()
 }
 
 func (mo *MockOrders) processOrder(ctx context.Context, order orders.KafkaOrder) {
@@ -103,12 +98,12 @@ func (mo *MockOrders) processOrder(ctx context.Context, order orders.KafkaOrder)
 		mo.processLock.Unlock()
 	}()
 
-	_ = mo.checkOrderStatus(ctx, order)
+	_ = mo.CheckOrderStatus(ctx, order)
 
 	mo.log.Info().Interface("order", order).Msg("Order successfully processed in mock")
 }
 
-func (mo *MockOrders) checkOrderStatus(ctx context.Context, message orders.KafkaOrder) error {
+func (mo *MockOrders) CheckOrderStatus(ctx context.Context, message orders.KafkaOrder) error {
 	mo.log.Info().Interface("OrderNum", message).Msg("Retrieving Order ID (mock)")
 
 	// Simulate status update

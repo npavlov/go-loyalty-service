@@ -10,7 +10,7 @@ import (
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	auth "github.com/npavlov/go-loyalty-service/internal/handlers/auth"
 	"github.com/npavlov/go-loyalty-service/internal/handlers/balance"
-	health "github.com/npavlov/go-loyalty-service/internal/handlers/health"
+	"github.com/npavlov/go-loyalty-service/internal/handlers/health"
 	orders "github.com/npavlov/go-loyalty-service/internal/handlers/orders"
 	"github.com/npavlov/go-loyalty-service/internal/middlewares"
 	"github.com/npavlov/go-loyalty-service/internal/redis"

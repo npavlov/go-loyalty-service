@@ -215,21 +215,43 @@ func TestHandlerAuth_LoginHandler_EmptyFields(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		target   string
 		user     models.User
 		expected int
 	}{
 		{
 			name:     "Empty Username",
+			target:   "/login",
 			user:     models.User{Login: "", Password: "password123"},
 			expected: http.StatusBadRequest,
 		},
 		{
 			name:     "Empty Password",
+			target:   "/login",
 			user:     models.User{Login: "testuser", Password: ""},
 			expected: http.StatusBadRequest,
 		},
 		{
 			name:     "Both Empty",
+			target:   "/login",
+			user:     models.User{Login: "", Password: ""},
+			expected: http.StatusBadRequest,
+		},
+		{
+			name:     "Empty Username",
+			target:   "/register",
+			user:     models.User{Login: "", Password: "password123"},
+			expected: http.StatusBadRequest,
+		},
+		{
+			name:     "Empty Password",
+			target:   "/register",
+			user:     models.User{Login: "testuser", Password: ""},
+			expected: http.StatusBadRequest,
+		},
+		{
+			name:     "Both Empty",
+			target:   "/register",
 			user:     models.User{Login: "", Password: ""},
 			expected: http.StatusBadRequest,
 		},
@@ -241,11 +263,17 @@ func TestHandlerAuth_LoginHandler_EmptyFields(t *testing.T) {
 
 			body, err := json.Marshal(tc.user)
 			require.NoError(t, err)
-			req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(body))
+			req := httptest.NewRequest(http.MethodPost, tc.target, bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 
 			rec := httptest.NewRecorder()
-			authHandler.LoginHandler(rec, req)
+
+			switch tc.target {
+			case "/login":
+				authHandler.LoginHandler(rec, req)
+			case "/register":
+				authHandler.RegisterHandler(rec, req)
+			}
 
 			assert.Equal(t, tc.expected, rec.Code)
 		})
