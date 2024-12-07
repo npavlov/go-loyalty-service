@@ -1,12 +1,14 @@
 package logger
 
 import (
+	"context"
 	"io"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Logger struct {
@@ -37,4 +39,20 @@ func (l *Logger) SetLogLevel(level zerolog.Level) *Logger {
 	zerolog.SetGlobalLevel(level)
 
 	return l
+}
+
+func GetWithTrace(ctx context.Context, logger *zerolog.Logger) *zerolog.Logger {
+	span := trace.SpanFromContext(ctx)
+	if !span.SpanContext().IsValid() {
+		// If no valid span exists, return the logger as-is
+		return logger
+	}
+
+	spanContext := span.SpanContext()
+
+	updated := logger.With().
+		Str("traceID", spanContext.TraceID().String()).
+		Str("spanID", spanContext.SpanID().String()).Logger()
+
+	return &updated
 }
