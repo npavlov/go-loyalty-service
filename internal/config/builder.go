@@ -15,6 +15,7 @@ type Config struct {
 	JwtSecret      string `env:"JWT_SECRET"             envDefault:""`
 	Redis          string `env:"REDIS"                  envDefault:"localhost:6379"`
 	Kafka          string `env:"KAFKA"                  envDefault:"localhost:9092"`
+	Jaeger         string `env:"JAEGER_ENDPOINT"        envDefault:"localhost:4318"`
 }
 
 // Builder defines the builder for the Config struct.
@@ -33,6 +34,7 @@ func NewConfigBuilder(log *zerolog.Logger) *Builder {
 			JwtSecret:      "",
 			Redis:          "",
 			Kafka:          "",
+			Jaeger:         "",
 		},
 		logger: log,
 	}
@@ -55,6 +57,7 @@ func (b *Builder) FromFlags() *Builder {
 	flag.StringVar(&b.cfg.JwtSecret, "jwt", b.cfg.JwtSecret, "JWT Secret")
 	flag.StringVar(&b.cfg.Redis, "redis", b.cfg.Redis, "Redis connection string")
 	flag.StringVar(&b.cfg.Kafka, "kafka", b.cfg.Kafka, "Kafka connection string")
+	flag.StringVar(&b.cfg.Jaeger, "jaeger", b.cfg.Jaeger, "Jaeger connection string")
 	flag.Parse()
 
 	return b

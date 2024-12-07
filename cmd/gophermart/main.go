@@ -9,6 +9,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/npavlov/go-loyalty-service/internal/config"
 	"github.com/npavlov/go-loyalty-service/internal/dbmanager"
@@ -22,6 +23,7 @@ import (
 	"github.com/npavlov/go-loyalty-service/internal/redis"
 	"github.com/npavlov/go-loyalty-service/internal/router"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
+	"github.com/npavlov/go-loyalty-service/internal/tracer"
 	"github.com/npavlov/go-loyalty-service/internal/utils"
 )
 
@@ -53,6 +55,17 @@ func main() {
 
 	ctx, cancel := utils.WithSignalCancel(context.Background(), log)
 
+	// Initialize OpenTelemetry Tracer
+	tp, err := tracer.NewTracer(cfg).InitTracer(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize tracer")
+	}
+	defer func() {
+		if err := tp.Shutdown(ctx); err != nil {
+			log.Error().Err(err).Msg("Error shutting down tracer provider")
+		}
+	}()
+
 	dbManager := dbmanager.NewDBManager(cfg.Database, log).Connect(ctx).ApplyMigrations()
 	defer dbManager.Close()
 	if dbManager.DB == nil {
@@ -61,7 +74,7 @@ func main() {
 
 	st := storage.NewDBStorage(dbManager.DB, log)
 
-	memStorage := redis.NewRStorage(*cfg)
+	memStorage := redis.NewRStorage(*cfg, log)
 
 	if err := memStorage.Ping(ctx); err != nil {
 		log.Error().Err(err).Msg("Error connecting to redis")
@@ -91,12 +104,15 @@ func main() {
 		Str("server_address", cfg.Address).
 		Msg("Server started")
 
+	// Wrap the router with OpenTelemetry middleware
+	otelRouter := otelhttp.NewHandler(cRouter.GetRouter(), "HTTP Router")
+
 	//nolint:exhaustruct
 	server := &http.Server{
 		Addr:         cfg.Address,
 		ReadTimeout:  1 * time.Second,
 		WriteTimeout: 1 * time.Second,
-		Handler:      cRouter.GetRouter(),
+		Handler:      otelRouter,
 	}
 
 	go func() {

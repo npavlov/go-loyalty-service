@@ -10,10 +10,14 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/npavlov/go-loyalty-service/internal/config"
+	"github.com/npavlov/go-loyalty-service/internal/logger"
 	"github.com/npavlov/go-loyalty-service/internal/models"
 	"github.com/npavlov/go-loyalty-service/internal/redis"
 	"github.com/npavlov/go-loyalty-service/internal/storage"
@@ -26,148 +30,179 @@ type HandlerAuth struct {
 	cfg        *config.Config
 	validate   *validator.Validate
 	memStorage redis.MemStorage
+	tracer     trace.Tracer
 }
 
 const (
 	tokenExpiration = time.Minute * 60
 )
 
-// NewAuthHandler - constructor for AuthHandler.
+// NewAuthHandler initializes the AuthHandler with tracing.
 func NewAuthHandler(st storage.Storage, cfg *config.Config, memSt redis.MemStorage, l *zerolog.Logger) *HandlerAuth {
+	tracer := otel.Tracer("auth-handlers")
+
 	return &HandlerAuth{
 		logger:     l,
 		storage:    st,
 		cfg:        cfg,
 		validate:   validator.New(),
 		memStorage: memSt,
+		tracer:     tracer,
 	}
 }
 
+// RegisterHandler processes user registration.
+//
+//nolint:funlen
 func (ah *HandlerAuth) RegisterHandler(writer http.ResponseWriter, request *http.Request) {
+	ctx, span := ah.tracer.Start(request.Context(), "RegisterHandler")
+	defer span.End()
+
+	log := logger.GetWithTrace(ctx, ah.logger)
+
 	var req models.User
 	if err := json.NewDecoder(request.Body).Decode(&req); err != nil {
-		ah.logger.Error().Err(err).Msg("error decoding body")
+		log.Error().Err(err).Msg("error decoding body")
 		http.Error(writer, "Invalid request", http.StatusBadRequest)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Invalid request body")
 
 		return
 	}
 
-	// Validate the struct
+	span.SetAttributes(attribute.String("user.login", req.Login))
+
 	if err := ah.validate.Struct(req); err != nil {
-		ah.logger.Error().Err(err).Msg("error validating body")
+		log.Error().Err(err).Msg("error validating body")
 		http.Error(writer, "Invalid input: "+err.Error(), http.StatusBadRequest)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Validation failed")
 
 		return
 	}
 
-	// Hash the user's password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		ah.logger.Error().Err(err).Msg("error encrypting password")
+		log.Error().Err(err).Msg("error encrypting password")
 		http.Error(writer, "Error creating user", http.StatusInternalServerError)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Password encryption failed")
 
 		return
 	}
 
-	userID, err := ah.storage.AddUser(request.Context(), req.Login, string(hashedPassword))
+	userID, err := ah.storage.AddUser(ctx, req.Login, string(hashedPassword))
 	if result := utils.CheckPGConstraint(err); err != nil && result {
 		http.Error(writer, "Username already exists", http.StatusConflict)
+		span.SetStatus(codes.Error, "Username conflict")
 
 		return
 	}
 
 	if userID == "" || err != nil {
-		ah.logger.Error().Msg("Error saving user")
-
+		log.Error().Msg("Error saving user")
 		http.Error(writer, "Error saving user", http.StatusInternalServerError)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Database error")
 
 		return
 	}
 
-	// Generate JWT for the new user
+	span.SetAttributes(attribute.String("user.id", userID))
+
 	token, err := ah.generateJWT(userID, ah.cfg.JwtSecret)
 	if err != nil {
 		log.Err(err).Msg("Error generating JWT")
 		http.Error(writer, "Error generating token", http.StatusInternalServerError)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "JWT generation failed")
 
 		return
 	}
 
-	err = ah.storeInRedis(request.Context(), userID, token)
+	err = ah.storeInRedis(ctx, userID, token)
 	if err != nil {
 		log.Err(err).Msg("Error storing token in Redis")
 		http.Error(writer, "Error storing token in Redis", http.StatusInternalServerError)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Redis storage failed")
 
 		return
 	}
 
 	ah.returnToken(writer, token)
+	span.SetStatus(codes.Ok, "User registered successfully")
 }
 
+//nolint:funlen
 func (ah *HandlerAuth) LoginHandler(writer http.ResponseWriter, request *http.Request) {
+	ctx, span := ah.tracer.Start(request.Context(), "LoginHandler")
+	defer span.End()
+
+	log := logger.GetWithTrace(ctx, ah.logger)
+
 	var req models.User
 	if err := json.NewDecoder(request.Body).Decode(&req); err != nil {
-		ah.logger.Error().Err(err).Msg("error decoding body")
+		log.Error().Err(err).Msg("error decoding body")
 		http.Error(writer, "Invalid request", http.StatusBadRequest)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Invalid request body")
 
 		return
 	}
 
-	// Validate the struct
+	span.SetAttributes(attribute.String("user.login", req.Login))
+
 	if err := ah.validate.Struct(req); err != nil {
-		ah.logger.Error().Err(err).Msg("error validating body")
+		log.Error().Err(err).Msg("error validating body")
 		http.Error(writer, "Invalid input: "+err.Error(), http.StatusBadRequest)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Validation failed")
 
 		return
 	}
 
-	// Use the correct field name for username
-	username := req.Login // or req.Login if that's the correct field in models.User
-
-	login, found := ah.storage.GetUser(request.Context(), username)
-
-	if !found {
-		ah.logger.Error().Str("username", username).Msg("Login for user not found")
+	login, found := ah.storage.GetUser(ctx, req.Login)
+	if !found || login.HashedPassword == "" {
+		log.Error().Msg("Invalid username or password")
 		http.Error(writer, "Invalid username or password", http.StatusUnauthorized)
+		span.SetStatus(codes.Error, "Authentication failed")
 
 		return
 	}
 
-	// Check if the password is actually retrieved
-	if login.HashedPassword == "" {
-		ah.logger.Error().Msg("Password not found for user")
-		http.Error(writer, "Password not found for user", http.StatusInternalServerError)
-
-		return
-	}
-
-	// Verify the provided password
 	err := bcrypt.CompareHashAndPassword([]byte(login.HashedPassword), []byte(req.Password))
 	if err != nil {
 		http.Error(writer, "Invalid username or password", http.StatusUnauthorized)
-		ah.logger.Error().Err(err).Msg("Invalid username or password")
+		log.Error().Err(err).Msg("Invalid username or password")
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Password mismatch")
 
 		return
 	}
 
-	// Generate a JWT token
 	token, err := ah.generateJWT(login.UserID.String(), ah.cfg.JwtSecret)
 	if err != nil {
 		log.Err(err).Msg("Error generating token")
 		http.Error(writer, "Error generating token", http.StatusInternalServerError)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "JWT generation failed")
 
 		return
 	}
 
-	err = ah.storeInRedis(request.Context(), login.UserID.String(), token)
+	err = ah.storeInRedis(ctx, login.UserID.String(), token)
 	if err != nil {
 		log.Err(err).Msg("Error storing token in Redis")
 		http.Error(writer, "Error storing token in Redis", http.StatusInternalServerError)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Redis storage failed")
 
 		return
 	}
 
 	ah.returnToken(writer, token)
+	span.SetStatus(codes.Ok, "User logged in successfully")
 }
 
 func (ah *HandlerAuth) generateJWT(userID string, jwtSecret string) (string, error) {
