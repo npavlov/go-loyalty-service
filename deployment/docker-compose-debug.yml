@@ -1,0 +1,82 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=yourpassword  # Replace with a strong password
+      - POSTGRES_DB=yourdb
+    ports:
+      - "5432:5432"  # Expose PostgreSQL for host machine access (optional)
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"  # Expose Redis for host machine access (optional)
+    networks:
+      - app-network
+
+  kafka:
+    image: bitnami/kafka:3
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_LISTENERS=PLAINTEXT://:9092
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"  # Kafka broker port
+    networks:
+      - app-network
+
+  zookeeper:
+    image: bitnami/zookeeper:3
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"  # Zookeeper port
+    networks:
+      - app-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.46
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411  # Enable Zipkin endpoint
+    ports:
+      - "5775:5775/udp"    # UDP port for jaeger-agent
+      - "6831:6831/udp"    # UDP port for agent with compact Thrift protocol
+      - "6832:6832/udp"    # UDP port for agent with binary Thrift protocol
+      - "5778:5778"        # HTTP port for agent configuration
+      - "16686:16686"      # HTTP port for Jaeger UI
+      - "14268:14268"      # HTTP port for collector
+      - "14250:14250"      # GRPC port for collector
+      - "9411:9411"        # HTTP port for Zipkin compatibility
+    networks:
+      - app-network
+
+  server:
+    build:
+      context: ..
+      dockerfile: dockerfile.debug
+    networks:
+      - app-network
+    ports:
+      - "8082:8082"    # Server application port
+      - "40000:40000"  # Delve debugging port
+    environment:
+      - RUN_ADDRESS=server:8082  # Replace with the address your server listens on
+      - DATABASE_URI=postgres://postgres:yourpassword@postgres:5432/yourdb?sslmode=disable
+      - JWT_SECRET=random
+      - REDIS=redis:6379  # Redis hostname and port
+      - KAFKA=kafka:9092  # Kafka broker hostname and port
+      - JAEGER_ENDPOINT=jaeger:4318
+    command: dlv exec /app/server --headless --listen=:40000 --api-version=2 --log --accept-multiclient
+
+networks:
+  app-network:
+    driver: bridge
