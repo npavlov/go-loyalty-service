@@ -49,6 +49,16 @@ jobs:
         run: |
           (cd cmd/gophermart && go build -buildvcs=false -o gophermart)
           (cd cmd/accrual && chmod +x accrual_linux_amd64)
+          
+      - name: Create Kafka topics
+        run: |
+          echo "Creating required Kafka topics..."
+          docker exec kafka kafka-topics.sh \
+            --create \
+            --topic orders \
+            --bootstrap-server localhost:9092 \
+            --replication-factor 1 \
+            --partitions 1
 
       - name: Test
         env:
