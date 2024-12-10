@@ -50,17 +50,6 @@ jobs:
           (cd cmd/gophermart && go build -buildvcs=false -o gophermart)
           (cd cmd/accrual && chmod +x accrual_linux_amd64)
 
-      - name: Run TEST
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: praktikum
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          KAFKA: localhost:9092
-          REDIS: localhost:6379
-          DATABASE_URI: postgres://postgres:yourpassword@localhost:5432/praktikum?sslmode=disable
-        run: |
-          bin/server
-
       - name: Test
         env:
           POSTGRES_PASSWORD: postgres
@@ -69,6 +58,7 @@ jobs:
           KAFKA: localhost:9092
           REDIS: localhost:6379
           DATABASE_URI: postgres://postgres:yourpassword@localhost:5432/praktikum?sslmode=disable
+          JAEGER_ENDPOINT: localhost:4318
         run: |
           gophermarttest \
             -test.v -test.run=^TestGophermart$ \

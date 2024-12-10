@@ -67,6 +67,7 @@ services:
       - "14268:14268"      # HTTP port for collector
       - "14250:14250"      # GRPC port for collector
       - "9411:9411"        # HTTP port for Zipkin compatibility
+      - "4318:4318"
     networks:
       - app-network
 
