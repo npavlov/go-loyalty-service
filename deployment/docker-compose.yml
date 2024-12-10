@@ -11,6 +11,11 @@ services:
       - "5432:5432"  # Expose PostgreSQL for host machine access (optional)
     networks:
       - app-network
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
 
   redis:
     image: redis:7
@@ -33,6 +38,11 @@ services:
       - "9092:9092"  # Kafka broker port
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   zookeeper:
     image: bitnami/zookeeper:3
@@ -61,8 +71,8 @@ services:
 
   server:
     build:
-      context: .
-      dockerfile: dockerfile.server
+      context: ..
+      dockerfile: ./deployment/dockerfile
     networks:
       - app-network
     ports:
@@ -75,7 +85,7 @@ services:
       - REDIS=redis:6379  # Redis hostname and port
       - KAFKA=kafka:9092  # Kafka broker hostname and port
       - JAEGER_ENDPOINT=jaeger:4318
-    command: dlv exec /app/server --headless --listen=:40000 --api-version=2 --log --accept-multiclient
+    command: /app/server
 
 networks:
   app-network:
