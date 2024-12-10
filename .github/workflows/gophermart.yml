@@ -25,7 +25,7 @@ jobs:
       - name: Set up services using Docker Compose
         run: |
           # Start services
-          docker-compose -f ./deployment/docker-compose.yml up -d
+          docker-compose -f ./deployment/docker-compose-github.yml up -d
 
       - name: Download autotests binaries
         uses: robinraju/release-downloader@v1.11
@@ -42,8 +42,12 @@ jobs:
           mv $GITHUB_WORKSPACE/.tools/gophermarttest /usr/local/bin/gophermarttest
           mv $GITHUB_WORKSPACE/.tools/random /usr/local/bin/random
 
+      - name: Build app
+        run: make build
+
       - name: Prepare binaries
         run: |
+          (cd cmd/gophermart && go build -buildvcs=false -o gophermart)
           (cd cmd/accrual && chmod +x accrual_linux_amd64)
 
       - name: Test
@@ -51,14 +55,17 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: praktikum
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          KAFKA: localhost:9092
+          REDIS: localhost:6379
+          DATABASE_URI: postgres://postgres:yourpassword@postgres:5432/praktikum?sslmode=disable
         run: |
           gophermarttest \
             -test.v -test.run=^TestGophermart$ \
             -gophermart-binary-path=bin/server \
             -gophermart-host=localhost \
             -gophermart-port=$(random unused-port) \
-            -gophermart-database-uri=postgres://postgres:yourpassword@postgres:5432/yourdb?sslmode=disable \
+            -gophermart-database-uri=postgres://postgres:yourpassword@postgres:5432/praktikum?sslmode=disable \
             -accrual-binary-path=cmd/accrual/accrual_linux_amd64 \
             -accrual-host=localhost \
             -accrual-port=$(random unused-port) \
-            -accrual-database-uri=postgres://postgres:yourpassword@postgres:5432/yourdb?sslmode=disable
+            -accrual-database-uri=postgres://postgres:yourpassword@postgres:5432/praktikum?sslmode=disable
