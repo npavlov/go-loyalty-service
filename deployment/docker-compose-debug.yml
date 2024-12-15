@@ -62,7 +62,7 @@ services:
   server:
     build:
       context: ..
-      dockerfile: dockerfile.debug
+      dockerfile: ./deployment/dockerfile.debug
     networks:
       - app-network
     ports:
