@@ -76,7 +76,7 @@ func TestHandlerOrders_Create(t *testing.T) {
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
-		handler.Create(resp, req)
+		handler.CreateOrder(resp, req)
 
 		assert.Equal(t, http.StatusAccepted, resp.Code)
 
@@ -94,7 +94,7 @@ func TestHandlerOrders_Create(t *testing.T) {
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
-		handler.Create(resp, req)
+		handler.CreateOrder(resp, req)
 
 		assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 	})
@@ -111,7 +111,7 @@ func TestHandlerOrders_Create(t *testing.T) {
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
-		handler.Create(resp, req)
+		handler.CreateOrder(resp, req)
 
 		assert.Equal(t, http.StatusOK, resp.Code)
 	})
@@ -129,7 +129,7 @@ func TestHandlerOrders_Create(t *testing.T) {
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
-		handler.Create(resp, req)
+		handler.CreateOrder(resp, req)
 
 		assert.Equal(t, http.StatusConflict, resp.Code)
 	})

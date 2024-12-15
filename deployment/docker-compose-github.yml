@@ -6,11 +6,16 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=yourpassword  # Replace with a strong password
-      - POSTGRES_DB=yourdb
+      - POSTGRES_DB=praktikum
     ports:
       - "5432:5432"  # Expose PostgreSQL for host machine access (optional)
     networks:
       - app-network
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
 
   redis:
     image: redis:7
@@ -20,11 +25,12 @@ services:
       - app-network
 
   kafka:
-    image: bitnami/kafka:3
+    image: bitnami/kafka:3.5.1
+    container_name: kafka
     environment:
       - KAFKA_BROKER_ID=1
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
       - KAFKA_LISTENERS=PLAINTEXT://:9092
       - ALLOW_PLAINTEXT_LISTENER=yes
     depends_on:
@@ -33,9 +39,15 @@ services:
       - "9092:9092"  # Kafka broker port
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   zookeeper:
-    image: bitnami/zookeeper:3
+    image: bitnami/zookeeper:3.8.0
+    container_name: zookeeper
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
     ports:
@@ -56,26 +68,9 @@ services:
       - "14268:14268"      # HTTP port for collector
       - "14250:14250"      # GRPC port for collector
       - "9411:9411"        # HTTP port for Zipkin compatibility
+      - "4318:4318"
     networks:
       - app-network
-
-  server:
-    build:
-      context: .
-      dockerfile: dockerfile.server
-    networks:
-      - app-network
-    ports:
-      - "8082:8082"    # Server application port
-      - "40000:40000"  # Delve debugging port
-    environment:
-      - RUN_ADDRESS=server:8082  # Replace with the address your server listens on
-      - DATABASE_URI=postgres://postgres:yourpassword@postgres:5432/yourdb?sslmode=disable
-      - JWT_SECRET=random
-      - REDIS=redis:6379  # Redis hostname and port
-      - KAFKA=kafka:9092  # Kafka broker hostname and port
-      - JAEGER_ENDPOINT=jaeger:4318
-    command: dlv exec /app/server --headless --listen=:40000 --api-version=2 --log --accept-multiclient
 
 networks:
   app-network:
