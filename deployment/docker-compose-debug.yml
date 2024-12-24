@@ -77,6 +77,16 @@ services:
       - JAEGER_ENDPOINT=jaeger:4318
     command: dlv exec /app/server --headless --listen=:40000 --api-version=2 --log --accept-multiclient
 
+  accrual:
+    build:
+      context: ..
+      dockerfile: ./deployment/dockerfile.accrual
+    networks:
+      - app-network
+    ports:
+      - "8080:8080"    # Accrual application port
+    command: /app/accrual_linux_amd64
+
 networks:
   app-network:
     driver: bridge

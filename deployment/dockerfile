@@ -23,7 +23,7 @@ RUN apk add --no-cache libc6-compat
 
 # Copy the compiled server binary and any required files (e.g., .env files)
 COPY --from=builder /app/server /app/server
-COPY .env /app/.env
+COPY /deployment/.env /app/.env
 COPY /migrations /app/migrations
 
 # Expose the port the server listens on

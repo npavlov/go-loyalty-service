@@ -1,6 +1,6 @@
 -- +goose Up
--- create enum type "order_status"
-CREATE TYPE "order_status" AS ENUM ('NEW', 'PROCESSING', 'INVALID', 'PROCESSED');
+-- create enum type "order_status_type"
+CREATE TYPE "order_status_type" AS ENUM ('NEW', 'PROCESSING', 'INVALID', 'PROCESSED');
 -- create "users" table
 CREATE TABLE "users" (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -16,7 +16,7 @@ CREATE TABLE "orders" (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "user_id" uuid NULL,
   "order_num" character varying(255) NOT NULL,
-  "status" "order_status" NOT NULL DEFAULT 'NEW',
+  "status" "order_status_type" NOT NULL DEFAULT 'NEW',
   "amount" numeric(10,2) NULL DEFAULT NULL::numeric,
   "created_at" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -44,5 +44,5 @@ DROP TABLE "withdrawals";
 DROP TABLE "orders";
 -- reverse: create "users" table
 DROP TABLE "users";
--- reverse: create enum type "order_status"
-DROP TYPE "order_status";
+-- reverse: create enum type "order_status_type"
+DROP TYPE "order_status_type";

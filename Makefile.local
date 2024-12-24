@@ -1,7 +1,7 @@
 # Define variables
 MIGRATION_NAME = "default_migration_name"
-TEMP_DB=
-DATABASE_URI=
+TEMP_DB=postgres://nikpav:Vfdc432!@localhost:5432/atlas?search_path=public&sslmode=disable
+DATABASE_URI=postgres://nikpav:Vfdc432!@localhost:5432/loyalty?search_path=public&sslmode=disable
 
 # Export the variables
 export MIGRATION_NAME

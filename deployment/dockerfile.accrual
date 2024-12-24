@@ -1,0 +1,23 @@
+# Start with a lightweight base image for Linux amd64
+FROM --platform=linux/amd64 debian:bullseye-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install necessary libraries
+RUN apt-get update && apt-get install -y \
+    libc6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the binary into the container
+COPY /cmd/accrual/accrual_linux_amd64 /app/accrual_linux_amd64
+
+# Make the binary executable
+RUN chmod +x /app/accrual_linux_amd64
+
+# Expose the port if the binary serves a network service
+# Change the port number as needed
+EXPOSE 8080
+
+# Set the default command to run the binary
+CMD ["./accrual_linux_amd64"]

@@ -77,7 +77,6 @@ services:
       - app-network
     ports:
       - "8082:8082"    # Server application port
-      - "40000:40000"  # Delve debugging port
     environment:
       - RUN_ADDRESS=server:8082  # Replace with the address your server listens on
       - DATABASE_URI=postgres://postgres:yourpassword@postgres:5432/yourdb?sslmode=disable
@@ -85,7 +84,18 @@ services:
       - REDIS=redis:6379  # Redis hostname and port
       - KAFKA=kafka:9092  # Kafka broker hostname and port
       - JAEGER_ENDPOINT=jaeger:4318
+      - ACCRUAL_SYSTEM_ADDRESS=accrual:8080
     command: /app/server
+
+  accrual:
+    build:
+      context: ..
+      dockerfile: ./deployment/dockerfile.accrual
+    networks:
+      - app-network
+    ports:
+      - "8080:8080"    # Accrual application port
+    command: /app/accrual_linux_amd64
 
 networks:
   app-network:
