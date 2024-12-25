@@ -26,6 +26,7 @@ type MockOrders struct {
 	stopChan    chan struct{}
 	processing  map[string]bool // Tracks currently processing orders
 	processLock sync.Mutex      // Synchronizes access to `processing`
+	wg          sync.WaitGroup  // WaitGroup to track active processing
 }
 
 func NewMockOrders(storage *MockStorage, log *zerolog.Logger) *MockOrders {
@@ -36,6 +37,7 @@ func NewMockOrders(storage *MockStorage, log *zerolog.Logger) *MockOrders {
 		stopChan:    make(chan struct{}),
 		processing:  make(map[string]bool),
 		processLock: sync.Mutex{},
+		wg:          sync.WaitGroup{},
 	}
 }
 
@@ -50,6 +52,9 @@ func (mo *MockOrders) AddOrder(ctx context.Context, orderNum string, userID stri
 	select {
 	case mo.orderChan <- data:
 		mo.log.Info().Interface("order", data).Msg("New order added to the mock channel")
+
+		// Increment WaitGroup counter for the new order
+		mo.wg.Add(1)
 
 		return nil
 	case <-ctx.Done():
@@ -87,6 +92,9 @@ func (mo *MockOrders) processOrder(ctx context.Context, order orders.KafkaOrder)
 		mo.log.Warn().Str("orderNum", order.OrderNum).Msg("Order already being processed")
 		mo.processLock.Unlock()
 
+		// Decrement WaitGroup counter for already processed orders
+		mo.wg.Done()
+
 		return
 	}
 	mo.processing[order.OrderNum] = true
@@ -96,6 +104,9 @@ func (mo *MockOrders) processOrder(ctx context.Context, order orders.KafkaOrder)
 		mo.processLock.Lock()
 		delete(mo.processing, order.OrderNum)
 		mo.processLock.Unlock()
+
+		// Decrement WaitGroup counter after processing is complete
+		mo.wg.Done()
 	}()
 
 	_ = mo.CheckOrderStatus(ctx, order)
@@ -107,7 +118,7 @@ func (mo *MockOrders) CheckOrderStatus(ctx context.Context, message orders.Kafka
 	mo.log.Info().Interface("OrderNum", message).Msg("Retrieving Order ID (mock)")
 
 	// Simulate status update
-	time.Sleep(simulateTimeout) // Simulate processing time
+	// time.Sleep(simulateTimeout) // Simulate processing time
 	update := &models.Accrual{
 		OrderID: message.OrderNum,
 		Status:  string(models.Processed),    // Mock processed status
@@ -122,4 +133,8 @@ func (mo *MockOrders) CheckOrderStatus(ctx context.Context, message orders.Kafka
 	mo.log.Info().Str("OrderNum", message.OrderNum).Msg("Order status updated to processed")
 
 	return nil
+}
+
+func (mo *MockOrders) WaitForAllProcesses() {
+	mo.wg.Wait()
 }
