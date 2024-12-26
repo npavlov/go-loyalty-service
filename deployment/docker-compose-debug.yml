@@ -87,6 +87,19 @@ services:
       - "8080:8080"    # Accrual application port
     command: /app/accrual_linux_amd64
 
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest
+    environment:
+      - KAFKA_BROKERCONNECT=kafka:9092
+      - SERVER_PORT=9000
+      - JVM_OPTS=-Xms32M -Xmx64M
+    depends_on:
+      - kafka
+    ports:
+      - "9000:9000"  # Kafdrop UI port
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
