@@ -2,9 +2,7 @@ package testutils_test
 
 import (
 	"context"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -49,19 +47,9 @@ func TestMockOrders(t *testing.T) {
 		err = mockOrders.AddOrder(ctx, order.OrderNum, order.UserID)
 		require.NoError(t, err, "Expected no error when adding order")
 
-		var wg sync.WaitGroup
-		wg.Add(1)
+		go mockOrders.ProcessOrders(ctx)
 
-		go func() {
-			defer wg.Done()
-			mockOrders.ProcessOrders(ctx)
-		}()
-
-		// Allow some time for processing
-		time.Sleep(500 * time.Millisecond)
-
-		mockOrders.StopProcessing()
-		wg.Wait()
+		mockOrders.WaitForAllProcesses()
 
 		orderCreated, found := mockStorage.GetOrder(ctx, order.OrderNum)
 

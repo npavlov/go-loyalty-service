@@ -61,7 +61,7 @@ func (mh *HandlerOrders) GetOrders(response http.ResponseWriter, req *http.Reque
 	_, _ = response.Write(responseData)
 }
 
-func (mh *HandlerOrders) Create(response http.ResponseWriter, req *http.Request) {
+func (mh *HandlerOrders) CreateOrder(response http.ResponseWriter, req *http.Request) {
 	// Read the request body
 	body, err := io.ReadAll(req.Body)
 	if err != nil {

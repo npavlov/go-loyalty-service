@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -76,7 +75,7 @@ func TestHandlerOrders_Create(t *testing.T) {
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
-		handler.Create(resp, req)
+		handler.CreateOrder(resp, req)
 
 		assert.Equal(t, http.StatusAccepted, resp.Code)
 
@@ -94,7 +93,7 @@ func TestHandlerOrders_Create(t *testing.T) {
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
-		handler.Create(resp, req)
+		handler.CreateOrder(resp, req)
 
 		assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 	})
@@ -111,7 +110,7 @@ func TestHandlerOrders_Create(t *testing.T) {
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
-		handler.Create(resp, req)
+		handler.CreateOrder(resp, req)
 
 		assert.Equal(t, http.StatusOK, resp.Code)
 	})
@@ -129,7 +128,7 @@ func TestHandlerOrders_Create(t *testing.T) {
 		req = req.WithContext(ctx)
 		resp := httptest.NewRecorder()
 
-		handler.Create(resp, req)
+		handler.CreateOrder(resp, req)
 
 		assert.Equal(t, http.StatusConflict, resp.Code)
 	})
@@ -159,8 +158,7 @@ func TestMockOrders_ProcessOrders(t *testing.T) {
 		// Start processing in a separate goroutine
 		go mockOrders.ProcessOrders(context.Background())
 
-		// Wait for a moment to allow processing
-		time.Sleep(500 * time.Millisecond)
+		mockOrders.WaitForAllProcesses()
 
 		// Check if the order was processed
 		order, found := mockStorage.GetOrder(context.Background(), orderID)
@@ -194,9 +192,7 @@ func TestMockOrders_ProcessOrders(t *testing.T) {
 		// Start processing
 		go mockOrders.ProcessOrders(context.Background())
 
-		// Wait for processing to complete
-		time.Sleep(1 * time.Second)
-
+		mockOrders.WaitForAllProcesses()
 		// Check if all orders were processed
 		for _, orderID := range orderIDs {
 			order, found := mockStorage.GetOrder(context.Background(), orderID)

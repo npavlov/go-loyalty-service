@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Create ENUM type for order statuses
-CREATE TYPE order_status AS ENUM ('NEW', 'PROCESSING', 'INVALID', 'PROCESSED');
+CREATE TYPE order_status_type AS ENUM ('NEW', 'PROCESSING', 'INVALID', 'PROCESSED');
 
 -- Create users table
 CREATE TABLE users (
@@ -18,14 +18,14 @@ CREATE TABLE orders (
                         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
                         order_num VARCHAR(255) UNIQUE NOT NULL,
-                        status order_status NOT NULL DEFAULT 'NEW', -- Default status is 'NEW'
+                        status order_status_type NOT NULL DEFAULT 'NEW', -- Default status is 'NEW'
                         amount NUMERIC(10, 2) DEFAULT NULL,
                         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Add trigger function to update the updated_at column
-CREATE OR REPLACE FUNCTION update_updated_at_column()
+CREATE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
    NEW.updated_at = CURRENT_TIMESTAMP;
@@ -51,7 +51,7 @@ CREATE TABLE withdrawals (
 
 
 -- Add trigger function to update the updated_at column
-CREATE OR REPLACE FUNCTION update_updated_at_column_withdrawals()
+CREATE FUNCTION update_updated_at_column_withdrawals()
 RETURNS TRIGGER AS $$
 BEGIN
    NEW.updated_at = CURRENT_TIMESTAMP;

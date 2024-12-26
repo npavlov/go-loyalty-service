@@ -82,7 +82,7 @@ func (cr *CustomRouter) SetOrdersRouter(ho *orders.HandlerOrders) {
 			Get("/", ho.GetOrders)
 		router.With(middlewares.ContentMiddleware("application/json")).
 			With(authMiddleware).
-			Post("/", ho.Create)
+			Post("/", ho.CreateOrder)
 	})
 }
 

@@ -20,10 +20,6 @@ import (
 	testutils "github.com/npavlov/go-loyalty-service/internal/test_utils"
 )
 
-const (
-	password = "password123"
-)
-
 func TestHandlerAuth_RegisterHandler(t *testing.T) {
 	t.Parallel()
 
@@ -72,6 +68,7 @@ func TestHandlerAuth_LoginHandler(t *testing.T) {
 
 	// Add a test user to the mock storage
 	username := "testuser"
+	password, _ := testutils.GeneratePassword(8)
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	userID := uuid.New().String()
@@ -122,6 +119,7 @@ func TestHandlerAuth_LoginHandlerInvalidPassword(t *testing.T) {
 
 	// Add a test user to the mock storage
 	username := "testuser"
+	password, _ := testutils.GeneratePassword(8)
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	userID := uuid.New().String()
@@ -166,7 +164,7 @@ func TestHandlerAuth_RegisterHandler_UserAlreadyExists(t *testing.T) {
 
 	// Add an existing user to the mock storage
 	existingUsername := "existinguser"
-	existingPassword := "password123"
+	existingPassword, _ := testutils.GeneratePassword(8)
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(existingPassword), bcrypt.DefaultCost)
 	_, _ = mockStorage.AddUser(context.Background(), existingUsername, string(hashedPassword))
